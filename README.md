@@ -8,7 +8,7 @@
 
 ### `$ cat about.md`
 
-Full-stack builder who ships solo — writes the scraper, designs the schema, wires the CI, and reads the postmortem when something breaks in production, usually before anyone else notices.
+Full-stack builder — writes the scraper, designs the schema, wires the CI, and reads the postmortem when something breaks in production, usually before anyone else notices.
 
 Right now: running a production data product end to end, and building tooling to make AI coding agents work together better.
 
@@ -16,7 +16,7 @@ Right now: running a production data product end to end, and building tooling to
 
 ### `$ ls projects/`
 
-**🌾 [HayWire](https://haywireag.com)** — hay-price intelligence newsletter, built and operated solo
+**🌾 [HayWire](https://haywireag.com)** — hay-price intelligence newsletter
 
 ```bash
 $ cat stack.txt
