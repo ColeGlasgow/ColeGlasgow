@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{background:#0d1117;color:#556;font-family:monospace;display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px}
+svg{max-width:680px;height:auto}
+.half svg{max-width:300px}
+h3{margin:8px 0 0}
+</style></head><body>
+<script>
+const t = new URLSearchParams(location.search).get('t') || '0';
+const files = ['gameboy','menu-fight','menu-bag','menu-pokemon','menu-run','h-fight',
+'card-haywire','card-agentfusion','bag','trainer-card','divider','save','btn-email','btn-site'];
+(async () => {
+  for (const f of files) {
+    const h = document.createElement('h3'); h.textContent = f; document.body.appendChild(h);
+    const div = document.createElement('div');
+    if (f.startsWith('menu-') || f.startsWith('btn-')) div.className = 'half';
+    div.innerHTML = await (await fetch('../' + f + '.svg')).text();
+    document.body.appendChild(div);
+  }
+  const st = document.createElement('style');
+  st.textContent = `svg *{animation-delay: -${t}s !important}`;
+  document.body.appendChild(st);
+  document.title = 'ready';
+})();
+</script>
+</body></html>
