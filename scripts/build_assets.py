@@ -713,7 +713,7 @@ def build_trainer():
         if art is not None:
             blit_map(d, S, bx, 91, art)
             d.css.append(
-                f".gl{i}{{animation:glint 9s linear infinite;animation-delay:{fnum(i * 0.9)}s}}"
+                f".gl{i}{{opacity:0;animation:glint 9s linear infinite;animation-delay:{fnum(i * 0.9)}s}}"
             )
             d.rect(bx * S, 91 * S, 12 * S, 12 * S, G3, cls=f"gl{i}")
         else:
