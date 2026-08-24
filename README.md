@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/gameboy.svg" alt="A Game Boy playing a battle scene: a wild COLE appeared! COLE is a full-stack builder. His Gengar faces your Pikachu while the dialogue box types out his story." width="682">
+<img src="assets/console.svg" alt="A Nintendo DS playing a Diamond/Pearl-style battle: a wild COLE appeared! COLE is a full-stack builder. His Gengar faces your Pikachu on the top screen while the touch screen shows the FIGHT / BAG / PKMN / RUN menu." width="640">
 
 <br><br>
 

@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Build the pixel-art SVG assets for the profile README.
 
-Everything is drawn on an authentic Game Boy (DMG-01) grid in the four-shade
-green palette. Text is rasterized from Press Start 2P into shared SVG glyph
-defs at build time, so nothing depends on fonts loading at view time, and all
-animation is plain CSS transform/opacity — safe inside GitHub's image proxy.
+Nintendo DS / Pokemon Diamond & Pearl era style: a two-screen DS Lite hero
+playing a Gen-4 battle, and section panels styled after D/P's touch UI —
+white rounded dialogue panels, navy headers, color-coded touch buttons,
+Gen-4 type badges, and a D/P trainer card.
+
+Text is rasterized from Press Start 2P into shared SVG glyph defs at build
+time, so nothing depends on fonts loading at view time; all animation is
+plain CSS transform/opacity that survives GitHub's image proxy.
 """
 
 import base64
@@ -17,21 +21,30 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "assets", "src")
 OUT = os.path.join(ROOT, "assets")
 
-# DMG palette
-G0 = "#0f380f"  # darkest
-G1 = "#306230"
-G2 = "#8bac0f"
-G3 = "#9bbc0f"  # lightest / screen background
-PALETTE = [(15, 56, 15, 255), (48, 98, 48, 255), (139, 172, 15, 255), (155, 188, 15, 255)]
+# ---- Diamond/Pearl palette
+NAVY = "#405078"        # panel borders
+NAVY_D = "#2c3a58"
+PANEL = "#f8f8f6"       # dialogue/panel white
+PANEL_ALT = "#f0ede4"
+TXT = "#383840"         # body text
+MUT = "#7890b0"         # muted label text
+LINK = "#2860c0"
+RED = "#e04838"
+CREAM = "#f0f0e0"
 
-# console shell
-SHELL = "#4d4956"
-SHELL_D = "#39363f"
-SHELL_L = "#5f5b6a"
-INK = "#c9c6bf"
-STRIPE_M = "#8b3a62"
-STRIPE_N = "#3f3f7a"
-LED = "#e8404a"
+TYPE_COLORS = {
+    "GRASS": ("#78c850", "#ffffff"),
+    "ELECTRIC": ("#f8d030", "#605010"),
+    "GHOST": ("#705898", "#ffffff"),
+    "PSYCHIC": ("#f85888", "#ffffff"),
+}
+
+# DS Lite shell
+SHELL = "#ececf0"
+SHELL_HI = "#fafafc"
+SHELL_LO = "#c6c6d0"
+SHELL_EDGE = "#a8a8b4"
+BEZEL = "#1a1a20"
 
 FONT = ImageFont.truetype(os.path.join(SRC, "PressStart2P.ttf"), 8)
 
@@ -44,14 +57,14 @@ def glyph_runs(ch):
         return _glyph_cache[ch]
     img = Image.new("L", (16, 16), 0)
     ImageDraw.Draw(img).text((0, 0), ch, font=FONT, fill=255)
-    px = img.load()
+    px_ = img.load()
     runs = []
     for y in range(16):
         x = 0
         while x < 16:
-            if px[x, y] >= 128:
+            if px_[x, y] >= 128:
                 x0 = x
-                while x < 16 and px[x, y] >= 128:
+                while x < 16 and px_[x, y] >= 128:
                     x += 1
                 runs.append((x0, y, x - x0))
             else:
@@ -66,8 +79,9 @@ def fnum(v):
 
 
 class Doc:
-    def __init__(self, w, h):
+    def __init__(self, w, h, ns=""):
         self.w, self.h = w, h
+        self.ns = ns
         self.body = []
         self.css = []
         self.defs = []
@@ -91,7 +105,7 @@ class Doc:
             self.glyphs[ch] = (gid, f'<g id="{gid}">{body}</g>')
         return self.glyphs[ch][0]
 
-    def text(self, x, y, s, scale=1, fill=G0, cls=None):
+    def text(self, x, y, s, scale=1, fill=TXT, cls=None):
         """Place a text run; (x, y) is the top-left corner in final units."""
         uses = []
         cx = 0
@@ -106,8 +120,12 @@ class Doc:
         )
         return len(s) * 8 * scale
 
-    def tri_right(self, x, y, s, fill=G0, cls=None):
-        """Right-pointing menu cursor, 4px tall half then mirrored (7 rows)."""
+    def text_shadow(self, x, y, s, scale=1, fill="#ffffff", shadow="rgba(0,0,0,.35)", dy=None):
+        d = dy if dy is not None else scale
+        self.text(x + d, y + d, s, scale=scale, fill=shadow)
+        self.text(x, y, s, scale=scale, fill=fill)
+
+    def tri_right(self, x, y, s, fill=TXT, cls=None):
         c = f' class="{cls}"' if cls else ""
         rows = [1, 2, 3, 4, 3, 2, 1]
         body = "".join(
@@ -115,7 +133,7 @@ class Doc:
         )
         self.add(f'<g transform="translate({fnum(x)},{fnum(y)}) scale({fnum(s)})" fill="{fill}"{c}>{body}</g>')
 
-    def tri_down(self, x, y, s, fill=G0, cls=None):
+    def tri_down(self, x, y, s, fill=TXT, cls=None):
         c = f' class="{cls}"' if cls else ""
         rows = [(0, 7), (1, 5), (2, 3), (3, 1)]
         body = "".join(
@@ -123,12 +141,22 @@ class Doc:
         )
         self.add(f'<g transform="translate({fnum(x)},{fnum(y)}) scale({fnum(s)})" fill="{fill}"{c}>{body}</g>')
 
-    def save(self, name):
+    def grad(self, gid, c1, c2, vertical=True):
+        gid = f"{self.ns}{gid}"
+        x2, y2 = ("0", "1") if vertical else ("1", "0")
+        self.defs.append(
+            f'<linearGradient id="{gid}" x1="0" y1="0" x2="{x2}" y2="{y2}">'
+            f'<stop offset="0" stop-color="{c1}"/><stop offset="1" stop-color="{c2}"/></linearGradient>'
+        )
+        return f"url(#{gid})"
+
+    def save(self, name, crisp=True):
         defs = "".join(d for _, d in self.glyphs.values()) + "".join(self.defs)
         css = "".join(self.css)
+        attr = ' shape-rendering="crispEdges"' if crisp else ""
         svg = (
             f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
-            f'viewBox="0 0 {self.w} {self.h}" width="{self.w}" height="{self.h}" shape-rendering="crispEdges">'
+            f'viewBox="0 0 {self.w} {self.h}" width="{self.w}" height="{self.h}"{attr}>'
             f"<style>{css}</style><defs>{defs}</defs>{''.join(self.body)}</svg>"
         )
         path = os.path.join(OUT, name)
@@ -137,42 +165,54 @@ class Doc:
         print(f"  {name}  ({len(svg) // 1024} KB)")
 
 
-# ---------------------------------------------------------------- pixel helpers
+# ---------------------------------------------------------------- helpers
 
 
 def px(doc, s, x, y, w, h, fill, cls=None):
     doc.rect(x * s, y * s, w * s, h * s, fill, cls=cls)
 
 
-def dbox(doc, s, x, y, w, h, fg=G0, bg=G3):
-    """Gen-1 style double-bordered dialogue box, logical units."""
-    px(doc, s, x, y, w, h, bg)
-    # outer line (with notched corners for the rounded look)
-    px(doc, s, x + 2, y, w - 4, 2, fg)
-    px(doc, s, x + 2, y + h - 2, w - 4, 2, fg)
-    px(doc, s, x, y + 2, 2, h - 4, fg)
-    px(doc, s, x + w - 2, y + 2, 2, h - 4, fg)
-    px(doc, s, x + 1, y + 1, 1, 1, fg)
-    px(doc, s, x + w - 2, y + 1, 1, 1, fg)
-    px(doc, s, x + 1, y + h - 2, 1, 1, fg)
-    px(doc, s, x + w - 2, y + h - 2, 1, 1, fg)
-    # inner hairline
-    px(doc, s, x + 4, y + 3, w - 8, 1, fg)
-    px(doc, s, x + 4, y + h - 4, w - 8, 1, fg)
-    px(doc, s, x + 3, y + 4, 1, h - 8, fg)
-    px(doc, s, x + w - 4, y + 4, 1, h - 8, fg)
+CORNER = [3, 2, 1, 1]
 
 
-def hpbar(doc, s, x, y, w, frac=1.0, cls=None):
-    """HP container + fill, logical units, 5px tall."""
-    px(doc, s, x, y, w, 5, G0)
-    px(doc, s, x + 1, y + 1, w - 2, 3, G3)
-    fill_w = max(1, round((w - 2) * frac))
-    px(doc, s, x + 1, y + 1, fill_w, 3, G1, cls=cls)
+def rpath(s, x, y, w, h, corner=CORNER):
+    """Pixel-rounded rectangle as one path (multi-subpath, one per row)."""
+    n = len(corner)
+    parts = []
+    for iy in range(h):
+        if iy < n:
+            inset = corner[iy]
+        elif h - 1 - iy < n:
+            inset = corner[h - 1 - iy]
+        else:
+            inset = 0
+        parts.append(
+            f"M{fnum((x + inset) * s)} {fnum((y + iy) * s)}h{fnum((w - 2 * inset) * s)}v{fnum(s)}h-{fnum((w - 2 * inset) * s)}z"
+        )
+    return "".join(parts)
 
 
-def blit_map(doc, s, x, y, art, colors=None):
-    colors = colors or {"#": G0, "o": G1, "+": G2, "-": G3}
+def rbox(doc, s, x, y, w, h, fill, border=None, b=2, cls=None):
+    """D/P-style rounded panel: optional border color + fill (may be a gradient url)."""
+    c = f' class="{cls}"' if cls else ""
+    if border:
+        doc.add(f'<path d="{rpath(s, x, y, w, h)}" fill="{border}"{c}/>')
+        doc.add(f'<path d="{rpath(s, x + b, y + b, w - 2 * b, h - 2 * b)}" fill="{fill}"/>')
+    else:
+        doc.add(f'<path d="{rpath(s, x, y, w, h)}" fill="{fill}"{c}/>')
+
+
+def hpbar(doc, s, x, y, w, frac=1.0, fill="#48c060"):
+    px(doc, s, x, y, w, 7, "#404048")
+    px(doc, s, x + 1, y + 1, w - 2, 5, "#e8e8e0")
+    px(doc, s, x + 1, y + 1, 14, 5, "#404048")
+    doc.text((x + 3) * s, (y + 1.2) * s, "HP", scale=s * 0.55, fill="#f8c838")
+    bar_x, bar_w = x + 16, w - 18
+    fill_w = max(1, round(bar_w * frac))
+    px(doc, s, bar_x, y + 2, fill_w, 3, fill)
+
+
+def blit_map(doc, s, x, y, art, colors):
     for j, row in enumerate(art):
         i = 0
         while i < len(row):
@@ -189,26 +229,13 @@ def blit_map(doc, s, x, y, art, colors=None):
 # ---------------------------------------------------------------- sprites
 
 
-def to_dmg(path, drop_white=False):
+def load_sprite(path):
     im = Image.open(path).convert("RGBA")
-    out = Image.new("RGBA", im.size, (0, 0, 0, 0))
-    src = im.load()
-    dst = out.load()
-    for y in range(im.height):
-        for x in range(im.width):
-            r, g, b, a = src[x, y]
-            if a < 128:
-                continue
-            lum = 0.299 * r + 0.587 * g + 0.114 * b
-            if drop_white and lum > 235:
-                continue
-            idx = 0 if lum < 64 else 1 if lum < 140 else 2 if lum < 215 else 3
-            dst[x, y] = PALETTE[idx]
-    bbox = out.getbbox()
-    return out.crop(bbox) if bbox else out
+    bbox = im.getbbox()
+    return im.crop(bbox) if bbox else im
 
 
-def silhouette(path, color=(15, 56, 15, 255)):
+def silhouette(path, color=(74, 58, 94, 255)):
     im = Image.open(path).convert("RGBA")
     out = Image.new("RGBA", im.size, (0, 0, 0, 0))
     src = im.load()
@@ -237,11 +264,11 @@ def image_tag(uri, x, y, w, h, cls=None):
     )
 
 
-GENGAR = to_dmg(os.path.join(SRC, "gengar-front.png"))
-PIKACHU_BACK = to_dmg(os.path.join(SRC, "pikachu-back.png"), drop_white=True)
-GENGAR_SHADOW = silhouette(os.path.join(SRC, "gengar-front.png"))
+GENGAR = load_sprite(os.path.join(SRC, "gengar-dp.png"))          # ~58x53
+PIKACHU = load_sprite(os.path.join(SRC, "pikachu-dp-back.png"))   # ~70x69
+GENGAR_SHADOW = silhouette(os.path.join(SRC, "gengar-dp.png"))
 GENGAR_URI = b64uri(GENGAR)
-PIKA_URI = b64uri(PIKACHU_BACK)
+PIKA_URI = b64uri(PIKACHU)
 GENGAR_SHADOW_URI = b64uri(GENGAR_SHADOW)
 
 # ---------------------------------------------------------------- pixel art
@@ -250,8 +277,8 @@ POKEBALL = [
     "....####....",
     "..##++++##..",
     ".#++++++++#.",
-    ".#++++--++#.",
-    "#+++++--+++#",
+    ".#+++++--+#.",
+    "#++++++--++#",
     "#++++++++++#",
     "############",
     "#oooo##oooo#",
@@ -260,6 +287,7 @@ POKEBALL = [
     "..##o##o##..",
     "....####....",
 ]
+POKEBALL_COLORS = {"#": "#303038", "+": "#e84838", "o": "#f0f0f4", "-": "#f8f8f8"}
 
 WHEAT = [
     "......#.....",
@@ -317,24 +345,33 @@ GEAR = [
     "....#..#....",
 ]
 
-STAR = [
-    ".....##.....",
-    ".....##.....",
-    "....#++#....",
-    "####+++#####",
-    "#++++++++++#",
-    ".##++++++##.",
-    "...#++++#...",
-    "...#++++#...",
-    "..#++##++#..",
-    "..#+#..#+#..",
-    ".##......##.",
+TERMINAL = [
+    "############",
+    "#----------#",
+    "#-#--------#",
+    "#--#-------#",
+    "#-#--------#",
+    "#----------#",
+    "#---####---#",
+    "#----------#",
+    "#----------#",
+    "############",
     "............",
+    "............",
+]
+
+DIAMOND_GEM = [
+    "....#....",
+    "..##+##..",
+    ".#+++++#.",
+    "#+++++++#",
+    ".#+++++#.",
+    "..##+##..",
+    "....#....",
 ]
 
 
 def shape_badge(pred, n=12):
-    """Build a 12x12 map from a predicate: border where edge, fill inside."""
     grid = [[pred(x, y) for x in range(n)] for y in range(n)]
     art = []
     for y in range(n):
@@ -357,281 +394,331 @@ BADGE_CIRCLE = shape_badge(lambda x, y: (x - 5.5) ** 2 + (y - 5.5) ** 2 <= 30)
 BADGE_DIAMOND = shape_badge(lambda x, y: abs(x - 5.5) + abs(y - 5.5) <= 5.5)
 BADGE_TRIANGLE = shape_badge(lambda x, y: y >= 2 and abs(x - 5.5) <= (y - 1) * 0.55)
 BADGE_HEX = shape_badge(lambda x, y: abs(x - 5.5) <= 5.5 - abs(y - 5.5) * 0.5 and 0 <= y < 12)
-BADGE_SQUARE = shape_badge(lambda x, y: 1 <= x <= 10 and 1 <= y <= 10)
-
-# terminal badge: square with a prompt caret inside
-BASH_BADGE = [
-    "############",
-    "#----------#",
-    "#-#--------#",
-    "#--#-------#",
-    "#-#--------#",
-    "#----------#",
-    "#---####---#",
-    "#----------#",
-    "#----------#",
-    "############",
-    "............",
-    "............",
-]
 
 
-# ---------------------------------------------------------------- assets
+# ---------------------------------------------------------------- hero (DS Lite)
+
+# screen logical size 256x192 at scale 2
+SS = 2
+SCR_W, SCR_H = 256 * SS, 192 * SS  # 512 x 384
+MARG = 64
+W_HERO = SCR_W + 2 * MARG          # 640
 
 
-def build_hero():
-    S = 3  # screen pixel scale
-    SX, SY = 72, 46  # screen origin
-    SW, SH = 160 * S, 144 * S
-    W, H = SX + SW + 30, SY + SH + 40
-    d = Doc(W, H)
-
-    # ---- console bezel
-    d.rect(0, 0, W, H, SHELL_D, extra=' rx="18"')
-    d.rect(2, 2, W - 4, H - 4, SHELL, extra=' rx="16"')
-    # pinstripes across the top
-    d.rect(16, 16, W - 32, 3, STRIPE_M)
-    d.rect(16, 23, W - 32, 3, STRIPE_N)
-    label = "DOT MATRIX WITH STEREO SOUND"
-    lw = len(label) * 8 * 0.75
-    d.rect((W - lw) / 2 - 10, 12, lw + 20, 18, SHELL)
-    d.text((W - lw) / 2, 18, label, scale=0.75, fill=INK)
-    # battery LED
-    d.defs.append(
-        '<filter id="ledglow" x="-120%" y="-120%" width="340%" height="340%">'
-        '<feGaussianBlur stdDeviation="5"/></filter>'
-    )
-    d.css.append(
-        "@keyframes led{0%,100%{opacity:.45}50%{opacity:1}}"
-        ".led{animation:led 2.6s ease-in-out infinite}"
-    )
-    d.add(f'<circle cx="38" cy="{SY + 96}" r="9" fill="{LED}" opacity=".5" filter="url(#ledglow)" class="led"/>')
-    d.add(f'<circle cx="38" cy="{SY + 96}" r="4" fill="{LED}"/>')
-    d.text(38 - 3.5 * 8 * 0.5, SY + 112, "BATTERY", scale=0.5, fill=INK)
-    # branding under the screen
-    brand = "COLE BOY"
-    bw = len(brand) * 8 * 1
-    d.text((SX + SW / 2) - bw / 2 - 8, SY + SH + 14, brand, scale=1, fill=INK)
-    d.text((SX + SW / 2) + bw / 2 + 4, SY + SH + 12, "TM", scale=0.4, fill=INK)
-    # screen frame + screen
-    d.rect(SX - 6, SY - 6, SW + 12, SH + 12, "#23212a", extra=' rx="4"')
-    d.rect(SX, SY, SW, SH, G3)
-
-    # ---- screen content group
-    d.add(f'<g transform="translate({SX},{SY})">')
-    s = S
-
-    # enemy (wild COLE) stat box, top-left
-    d.text(8 * s, 6 * s, "COLE", scale=s, fill=G0)
-    d.text(48 * s, 6 * s, ":L28", scale=s, fill=G0)
-    d.text(8 * s, 17 * s, "HP", scale=s, fill=G0)
-    hpbar(d, s, 26, 18, 62, 1.0)
-    px(d, s, 6, 26, 88, 1, G0)
-    px(d, s, 93, 23, 1, 3, G0)
-
-    # gengar, top-right (idle bob)
-    d.css.append(
-        "@keyframes bob{0%,49.9%{transform:translateY(0)}50%,100%{transform:translateY(-2px)}}"
-        f".bob{{animation:bob 1.4s steps(1,end) infinite}}"
-    )
-    gw, gh = GENGAR.width, GENGAR.height  # ~47x47
-    d.add(f'<g class="bob">{image_tag(GENGAR_URI, (150 - gw) * s, 5 * s, gw * s, gh * s)}</g>')
-
-    # player (YOU) stat box, bottom-right of field
-    d.text(76 * s, 58 * s, "YOU", scale=s, fill=G0)
-    d.text(108 * s, 58 * s, ":L??", scale=s, fill=G0)
-    d.text(76 * s, 69 * s, "HP", scale=s, fill=G0)
-    hpbar(d, s, 94, 70, 58, 1.0)
-    px(d, s, 74, 78, 82, 1, G0)
-    px(d, s, 74, 75, 1, 3, G0)
-
-    # pikachu back sprite, bottom-left, sitting on the dialogue box line
-    pw, ph = PIKACHU_BACK.width, PIKACHU_BACK.height
-    d.add(image_tag(PIKA_URI, 10 * s, (96 - ph * 2) * s, pw * 2 * s, ph * 2 * s))
-
-    # dialogue box
-    dbox(d, s, 0, 96, 160, 48)
-
-    # ---- dialogue phases
-    CYCLE = 28.0
+def _dialogue_phases(d, s, cycle, phases, box, text_xy, cover_bg):
+    """Typewriter dialogue phases inside an already-drawn box."""
+    bx, by, bw, bh = box
+    tx, ty0, line_h = text_xy
 
     def pct(t):
-        return fnum(t / CYCLE * 100)
+        return fnum(t / cycle * 100)
 
-    phases = [
-        ("A wild COLE", "appeared!"),
-        ("COLE is a FULL-", "STACK BUILDER!"),
-        ("He writes the", "scraper, the CI,"),
-        ("and reads the", "postmortem."),
-        ("GENGAR is", "loafing around!"),
-    ]
     d.css.append(
         "@keyframes blink{0%,54%{opacity:1}55%,100%{opacity:0}}"
         ".blink{animation:blink 1.1s steps(1,end) infinite}"
     )
-    for i, (l1, l2) in enumerate(phases):
-        t0, t1 = i * 4.0, i * 4.0 + 4.0
+    t0 = 0.0
+    for i, (dur, lines) in enumerate(phases):
+        t1 = t0 + dur
         cls = f"ph{i}"
         d.css.append(
-            f".{cls}{{opacity:0;animation:{cls} {fnum(CYCLE)}s linear infinite}}"
+            f".{cls}{{opacity:0;animation:{cls} {fnum(cycle)}s linear infinite}}"
             f"@keyframes {cls}{{0%,{pct(t0)}%{{opacity:0}}"
             f"{pct(t0 + 0.02)}%,{pct(t1 - 0.02)}%{{opacity:1}}"
             f"{pct(t1)}%,100%{{opacity:0}}}}"
         )
         d.add(f'<g class="{cls}">')
-        for li, line in enumerate((l1, l2)):
-            y = 104 + li * 14
-            d.text(8 * s, y * s, line, scale=s, fill=G0)
-            # typewriter cover
+        prev_len = 0
+        for li, line in enumerate(lines):
+            y = ty0 + li * line_h
+            d.text(tx * s, y * s, line, scale=s * 0.75, fill=TXT)
             n = len(line)
-            ts = t0 + 0.35 + (0 if li == 0 else len(l1) * 0.05 + 0.35)
-            te = ts + n * 0.05
+            ts = t0 + 0.3 + prev_len * 0.033 + (0.3 if li else 0)
+            te = ts + n * 0.033
+            prev_len += n
             tid = f"tp{i}_{li}"
             d.css.append(
                 f".{tid}{{transform-box:fill-box;transform-origin:100% 50%;"
-                f"animation:{tid} {fnum(CYCLE)}s linear infinite}}"
+                f"animation:{tid} {fnum(cycle)}s linear infinite}}"
                 f"@keyframes {tid}{{0%{{transform:scaleX(1)}}"
                 f"{pct(ts)}%{{transform:scaleX(1);animation-timing-function:steps({n},end)}}"
                 f"{pct(te)}%,100%{{transform:scaleX(0)}}}}"
             )
-            d.rect(8 * s, (y - 1) * s, n * 8 * s + s, 10 * s, G3, cls=tid)
-        d.tri_down(148 * s, 136 * s, s, fill=G0, cls="blink")
+            d.rect(tx * s, (y - 1) * s, (n * 6 + 2) * s, 8.5 * s, cover_bg, cls=tid)
+        d.tri_down((bx + bw - 14) * s, (by + bh - 10) * s, s * 0.9, fill=RED, cls="blink")
         d.add("</g>")
+        t0 = t1
 
-    # ---- menu phase (20s..28s)
-    t0, t1 = 20.0, 28.0
-    d.css.append(
-        f".ph5{{opacity:0;animation:ph5 {fnum(CYCLE)}s linear infinite}}"
-        f"@keyframes ph5{{0%,{pct(t0)}%{{opacity:0}}"
-        f"{pct(t0 + 0.02)}%,{pct(t1 - 0.05)}%{{opacity:1}}100%{{opacity:0}}}}"
-    )
-    d.add('<g class="ph5">')
-    d.text(8 * s, 104 * s, "What will", scale=s, fill=G0)
-    d.text(8 * s, 118 * s, "YOU do?", scale=s, fill=G0)
-    dbox(d, s, 92, 78, 68, 66)
-    items = ["FIGHT", "ITEM", "PKMN", "RUN"]
-    for i, it in enumerate(items):
-        d.text(112 * s, (86 + i * 14) * s, it, scale=s, fill=G0)
-    # cursor cycles down the menu, 2s per row
-    steps_css = []
-    for i in range(4):
-        a, b = t0 + i * 2.0, t0 + (i + 1) * 2.0
-        steps_css.append(f"{pct(a)}%,{pct(min(b, CYCLE) - 0.02)}%{{transform:translateY({i * 14 * s}px)}}")
-    d.css.append(
-        f".mcur{{animation:mcur {fnum(CYCLE)}s linear infinite}}"
-        f"@keyframes mcur{{0%{{transform:translateY(0)}}{''.join(steps_css)}100%{{transform:translateY(0)}}}}"
-    )
-    d.add('<g class="mcur">')
-    d.tri_right(101 * s, 86 * s, s, fill=G0)
-    d.add("</g></g>")
 
-    # ---- screen overlays: dot-matrix grid + vignette
-    d.defs.append(
-        f'<pattern id="dots" width="{s}" height="{s}" patternUnits="userSpaceOnUse">'
-        f'<rect x="{s - 0.5}" y="0" width="0.5" height="{s}" fill="rgba(15,56,15,0.07)"/>'
-        f'<rect x="0" y="{s - 0.5}" width="{s}" height="0.5" fill="rgba(15,56,15,0.07)"/>'
-        f"</pattern>"
-        '<radialGradient id="vig" cx="50%" cy="46%" r="72%">'
-        '<stop offset="62%" stop-color="rgba(15,56,15,0)"/>'
-        '<stop offset="100%" stop-color="rgba(15,56,15,0.16)"/></radialGradient>'
+def build_hero():
+    top_h = 456
+    hinge_h = 26
+    bot_h = 460
+    H = top_h + hinge_h + bot_h  # 942
+    d = Doc(W_HERO, H, ns="hero_")
+
+    shell_g = d.grad("shg", SHELL_HI, SHELL)
+    shell_g2 = d.grad("shg2", SHELL, "#dcdce2")
+
+    # ---- shells
+    d.add(f'<rect x="0" y="0" width="{W_HERO}" height="{top_h}" rx="30" fill="{shell_g}" stroke="{SHELL_EDGE}" stroke-width="2"/>')
+    d.add(f'<rect x="0" y="{top_h + hinge_h}" width="{W_HERO}" height="{bot_h}" rx="30" fill="{shell_g2}" stroke="{SHELL_EDGE}" stroke-width="2"/>')
+    # hinge
+    d.add(f'<rect x="14" y="{top_h - 8}" width="{W_HERO - 28}" height="{hinge_h + 16}" rx="12" fill="#c9c9d2" stroke="{SHELL_EDGE}" stroke-width="1.5"/>')
+    for hx in (110, W_HERO - 110):
+        d.add(f'<rect x="{hx - 26}" y="{top_h - 4}" width="52" height="{hinge_h + 8}" rx="9" fill="#b8b8c2"/>')
+    d.add(f'<circle cx="{W_HERO / 2}" cy="{top_h + hinge_h / 2 + 4}" r="3.5" fill="#8a8a96"/>')  # mic
+
+    # ---- top screen bezel + screen
+    d.add(f'<rect x="{MARG - 14}" y="24" width="{SCR_W + 28}" height="{SCR_H + 28}" rx="10" fill="{BEZEL}"/>')
+    TX, TY = MARG, 38
+    d.add(f'<g transform="translate({TX},{TY})" shape-rendering="crispEdges">')
+    s = SS
+
+    sky = d.grad("sky", "#78b8e8", "#d0ecf8")
+    d.add(f'<rect width="{SCR_W}" height="{SCR_H}" fill="{sky}"/>')
+    # distant hills
+    d.add(f'<ellipse cx="{60 * s}" cy="{120 * s}" rx="{110 * s}" ry="{18 * s}" fill="#a8d890"/>')
+    d.add(f'<ellipse cx="{210 * s}" cy="{124 * s}" rx="{120 * s}" ry="{20 * s}" fill="#98cc80"/>')
+    d.add(f'<rect y="{124 * s}" width="{SCR_W}" height="{68 * s}" fill="#8cc474"/>')
+
+    # enemy platform + gengar
+    plat = d.grad("plat", "#70b858", "#4e9040")
+    d.add(f'<ellipse cx="{186 * s}" cy="{122 * s}" rx="{60 * s}" ry="{15 * s}" fill="{plat}"/>')
+    gw, gh = GENGAR.width, GENGAR.height
+    scale_g = 70 / gh
+    d.css.append(
+        "@keyframes bob{0%,49.9%{transform:translateY(0)}50%,100%{transform:translateY(-3px)}}"
+        ".bob{animation:bob 1.6s steps(1,end) infinite}"
     )
-    d.add(f'<rect x="0" y="0" width="{SW}" height="{SH}" fill="url(#dots)"/>')
-    d.add(f'<rect x="0" y="0" width="{SW}" height="{SH}" fill="url(#vig)"/>')
-    d.add(f'<polygon points="0,0 {SW * 0.28},0 0,{SH * 0.5}" fill="rgba(255,255,255,0.045)"/>')
+    d.add(f'<g class="bob">{image_tag(GENGAR_URI, (186 - gw * scale_g / 2) * s, (126 - 70) * s, gw * scale_g * s, 70 * s)}</g>')
+
+    # player platform + pikachu (back)
+    d.add(f'<ellipse cx="{62 * s}" cy="{146 * s}" rx="{62 * s}" ry="{13 * s}" fill="{plat}"/>')
+    pw, ph = PIKACHU.width, PIKACHU.height
+    scale_p = 74 / ph
+    d.add(image_tag(PIKA_URI, (62 - pw * scale_p / 2) * s, (150 - 74) * s, pw * scale_p * s, 74 * s))
+
+    # enemy info box
+    rbox(d, s, 8, 10, 116, 34, CREAM, border="#586890", b=2)
+    d.text(16 * s, 16 * s, "COLE", scale=s * 0.75, fill="#303038")
+    d.text(88 * s, 16 * s, "L28", scale=s * 0.625, fill="#303038")
+    hpbar(d, s, 16, 27, 100 - 8, 1.0)
+
+    # player info box
+    rbox(d, s, 140, 100, 108, 40, CREAM, border="#586890", b=2)
+    d.text(147 * s, 106 * s, "PIKACHU", scale=s * 0.625, fill="#303038")
+    d.text(216 * s, 106 * s, "L5", scale=s * 0.625, fill="#303038")
+    hpbar(d, s, 147, 117, 94, 1.0)
+    px(d, s, 147, 128, 94, 3, "#c8c8c0")
+    px(d, s, 147, 128, 62, 3, "#3890f0")
+
+    # dialogue box
+    rbox(d, s, 4, 148, 248, 40, PANEL, border=NAVY, b=2)
+    phases = [
+        (4.0, ["A wild COLE appeared!"]),
+        (4.0, ["COLE is a FULL-STACK BUILDER!"]),
+        (5.0, ["He writes the scraper, the CI,", "and reads the postmortem."]),
+        (4.0, ["GENGAR is loafing around!"]),
+        (5.0, ["What will YOU do?"]),
+    ]
+    _dialogue_phases(d, s, 22.0, phases, (4, 148, 248, 40), (14, 157, 13), PANEL)
     d.add("</g>")
 
-    d.save("gameboy.svg")
+    # speakers on the top half
+    for sx in (34, W_HERO - 34):
+        for i, (ox, oy) in enumerate([(0, 0), (-7, 12), (7, 12), (-11, 25), (0, 25), (11, 25)]):
+            d.add(f'<circle cx="{sx + ox}" cy="{392 + oy}" r="2.6" fill="#b0b0bc"/>')
+
+    # ---- bottom screen bezel + touch UI
+    BY = top_h + hinge_h + 34
+    d.add(f'<rect x="{MARG - 14}" y="{BY - 14}" width="{SCR_W + 28}" height="{SCR_H + 28}" rx="10" fill="{BEZEL}"/>')
+    d.add(f'<g transform="translate({MARG},{BY})" shape-rendering="crispEdges">')
+
+    touch_bg = d.grad("tbg", "#2c405e", "#16243c")
+    d.add(f'<rect width="{SCR_W}" height="{SCR_H}" fill="{touch_bg}"/>')
+    for gy in range(0, 192, 16):
+        px(d, s, 0, gy, 256, 1, "rgba(255,255,255,0.03)")
+
+    fight_g = d.grad("fg", "#f05848", "#b82c28")
+    bag_g = d.grad("bg2", "#f0a030", "#c07818")
+    pkm_g = d.grad("pg", "#50b068", "#268048")
+    run_g = d.grad("rg", "#5088d8", "#2c5ca8")
+
+    rbox(d, s, 28, 18, 200, 84, fight_g, border="#801c1c", b=2)
+    d.add(f'<path d="{rpath(s, 32, 22, 192, 12)}" fill="rgba(255,255,255,0.22)"/>')
+    blit_map(d, s, 74, 48, POKEBALL, POKEBALL_COLORS)
+    d.text_shadow(98 * s, 48 * s, "FIGHT", scale=s * 1.5, shadow="rgba(80,10,10,.6)")
+
+    row = [("BAG", bag_g, "#8a5410", 28), ("PKMN", pkm_g, "#175830", 98), ("RUN", run_g, "#1c3c78", 168)]
+    for label, g, bd, bx in row:
+        rbox(d, s, bx, 116, 60, 44, g, border=bd, b=2)
+        d.add(f'<path d="{rpath(s, bx + 3, 119, 54, 8)}" fill="rgba(255,255,255,0.2)"/>')
+        tw = len(label) * 8
+        d.text_shadow((bx + 30) * s - tw * s / 2, 131 * s, label, scale=s, shadow="rgba(0,0,0,.4)")
+
+    # stylus taps cycling FIGHT -> BAG -> PKMN -> RUN
+    taps = [(128, 60), (58, 138), (128, 138), (198, 138)]
+    cyc = 8.0
+
+    def pctc(t):
+        return fnum(t / cyc * 100)
+
+    for i, (cx, cy) in enumerate(taps):
+        w0 = i * 2.0
+        d.css.append(
+            f".tapo{i}{{opacity:0;animation:tapo{i} {fnum(cyc)}s linear infinite}}"
+            f"@keyframes tapo{i}{{0%,{pctc(w0)}%{{opacity:0}}"
+            f"{pctc(w0 + 0.02)}%{{opacity:.85}}{pctc(w0 + 0.55)}%,100%{{opacity:0}}}}"
+            f".taps{i}{{transform-box:fill-box;transform-origin:50% 50%;"
+            f"animation:taps{i} {fnum(cyc)}s linear infinite}}"
+            f"@keyframes taps{i}{{0%,{pctc(w0)}%{{transform:scale(.35)}}"
+            f"{pctc(w0 + 0.55)}%,100%{{transform:scale(1.6)}}}}"
+        )
+        d.add(
+            f'<g class="tapo{i}"><circle cx="{cx * s}" cy="{cy * s}" r="{14 * s}" '
+            f'fill="none" stroke="#ffffff" stroke-width="3" class="taps{i}"/></g>'
+        )
+    d.add("</g>")
+
+    # ---- bottom shell controls
+    cy_ctrl = BY + SCR_H / 2 - 10
+    # d-pad
+    dp = 26
+    d.add(f'<g fill="#3c3c46">'
+          f'<rect x="{dp - 8}" y="{cy_ctrl - 23}" width="16" height="46" rx="4"/>'
+          f'<rect x="{dp - 23}" y="{cy_ctrl - 8}" width="46" height="16" rx="4"/></g>')
+    d.add(f'<circle cx="{dp}" cy="{cy_ctrl}" r="6" fill="#33333c"/>')
+    # abxy
+    ab = W_HERO - 26
+    for (ox, oy, letter) in [(0, -14, "X"), (-13, 0, "Y"), (13, 0, "A"), (0, 14, "B")]:
+        d.add(f'<circle cx="{ab + ox}" cy="{cy_ctrl + oy}" r="7" fill="#3c3c46"/>')
+        d.text(ab + ox - 2.6, cy_ctrl + oy - 3, letter, scale=0.65, fill="#9a9aa8")
+    # start/select
+    for i, lbl in enumerate(("START", "SELECT")):
+        yy = cy_ctrl + 40 + i * 22
+        d.add(f'<rect x="{ab - 13}" y="{yy}" width="24" height="7" rx="3.5" fill="#3c3c46"/>')
+        d.text(ab - 13, yy + 9, lbl, scale=0.4, fill="#8a8a96")
+    # power led
+    d.add(f'<circle cx="22" cy="{BY - 26}" r="4" fill="#40d060"/>')
+    d.add(f'<circle cx="22" cy="{BY - 26}" r="7" fill="#40d060" opacity=".25"/>')
+
+    # branding + gems
+    label = "COLE DS"
+    lw = len(label) * 8 * 0.75
+    bx0 = (W_HERO - lw) / 2
+    d.text(bx0, H - 20, label, scale=0.75, fill="#8a8a96")
+    blit_map(d, 1, bx0 - 18, H - 21, DIAMOND_GEM, {"#": "#3858a8", "+": "#6890e0"})
+    d.add(f'<circle cx="{bx0 + lw + 12}" cy="{H - 16.5}" r="4" fill="#e8a8c8"/>')
+    d.add(f'<circle cx="{bx0 + lw + 10.6}" cy="{H - 18}" r="1.4" fill="#f8e0ec"/>')
+
+    d.save("console.svg", crisp=False)
 
 
-def build_button(name, label, w_log=76):
-    S = 4
-    d = Doc(w_log * S, 18 * S)
-    dbox(d, S, 0, 0, w_log, 18)
-    tw = len(label) * 8
-    x = (w_log - tw - 10) // 2 + 10
-    d.css.append("@keyframes blink{0%,54%{opacity:1}55%,100%{opacity:0}}.blink{animation:blink 1.1s steps(1,end) infinite}")
-    d.tri_right(int(x - 10) * S, 6 * S, S, fill=G0, cls="blink")
-    d.text(int(x) * S, 5 * S, label, scale=S, fill=G0)
+# ---------------------------------------------------------------- nav + headers
+
+NAV_STYLES = {
+    "fight": ("FIGHT", "#f05848", "#b82c28", "#801c1c", "rgba(80,10,10,.6)"),
+    "bag": ("BAG", "#f0a030", "#c07818", "#8a5410", "rgba(90,50,0,.55)"),
+    "pokemon": ("POKéMON", "#50b068", "#268048", "#175830", "rgba(10,60,30,.55)"),
+    "run": ("RUN", "#5088d8", "#2c5ca8", "#1c3c78", "rgba(10,30,80,.55)"),
+}
+
+
+def build_button(name):
+    label, c1, c2, bd, sh = NAV_STYLES[name]
+    S = 2
+    w_log, h_log = 150, 36
+    d = Doc(w_log * S, h_log * S, ns=f"m{name}_")
+    g = d.grad("g", c1, c2)
+    rbox(d, S, 0, 0, w_log, h_log, g, border=bd, b=2)
+    d.add(f'<path d="{rpath(S, 3, 3, w_log - 6, 9)}" fill="rgba(255,255,255,0.22)"/>')
+    tw = len(label) * 8 * 1.25
+    d.text_shadow((w_log * S - tw * S) / 2, 12 * S, label, scale=S * 1.25, shadow=sh, dy=S)
     d.save(f"menu-{name}.svg")
 
 
-def build_header(name, label):
-    S = 4
-    d = Doc(160 * S, 20 * S)
-    d.rect(0, 0, 160 * S, 20 * S, G0)
-    px(d, S, 1, 1, 158, 18, G3)
-    px(d, S, 3, 3, 154, 14, G0)
-    d.tri_right(8 * S, 6 * S, S, fill=G3)
-    d.text(16 * S, 5 * S, label, scale=S, fill=G3)
-    tw = 16 + len(label) * 8 + 6
-    for x in range(tw, 136, 4):
-        px(d, S, x, 9, 2, 2, G2)
-    blit_map(d, S, 142, 4, POKEBALL, colors={"#": G3, "o": G2, "+": G3, "-": G0})
+def build_header(name):
+    label = NAV_STYLES[name][0]
+    S = 2
+    d = Doc(320 * S, 34 * S, ns=f"h{name}_")
+    g = d.grad("g", "#31446a", "#1d2a44")
+    rbox(d, S, 0, 0, 320, 32, g, border="#141c2e", b=1)
+    d.add(f'<path d="{rpath(S, 2, 2, 316, 8)}" fill="rgba(255,255,255,0.10)"/>')
+    blit_map(d, S, 10, 12, DIAMOND_GEM, {"#": "#2c6ea8", "+": "#58c8f0"})
+    d.text_shadow(26 * S, 11 * S, label, scale=S * 1.25, shadow="rgba(0,0,0,.5)")
+    cy = d.grad("cy", "#58c8f0", "#1d2a44", vertical=False)
+    px(d, S, 26, 25, 180, 1, cy)
+    blit_map(d, S, 296, 10, POKEBALL, POKEBALL_COLORS)
     d.save(f"h-{name}.svg")
 
 
-def _typed_line(d, S, x, y, text, phase_dur, start, fill=G0, bg=G3, cps=28.0, gs=0.75):
-    """One-shot looping typewriter line for cards. gs = glyph scale (of 8px)."""
-    n = len(text)
-    d.text(x * S, y * S, text, scale=S * gs, fill=fill)
-    ts, te = start, start + n / cps
-    tid = f"t{int(x)}_{int(y)}"
-    p = lambda t: fnum(t / phase_dur * 100)
+# ---------------------------------------------------------------- cards
+
+
+def build_card(fname, move, flavor, chips, pp, rows, link_label, icon, icon_colors):
+    S = 2
+    H = 96 + len(rows) * 13 + 30
+    d = Doc(320 * S, H * S, ns=fname.split(".")[0].replace("-", "") + "_")
+    rbox(d, S, 0, 0, 320, H, PANEL, border=NAVY, b=2)
+
+    hg = d.grad("hg", "#4878b8", "#2f568c")
+    rbox(d, S, 8, 8, 304, 26, hg, border="#22406a", b=1)
+    d.add(f'<path d="{rpath(S, 10, 10, 300, 7)}" fill="rgba(255,255,255,0.18)"/>')
+
+    # typed header
+    n = len(move)
+    d.text_shadow(18 * S, 16 * S, move, scale=S, shadow="rgba(0,0,20,.5)", dy=S)
+    cyc = 10.0
+    p = lambda t: fnum(t / cyc * 100)
+    ts, te = 0.4, 0.4 + n * 0.04
     d.css.append(
-        f".{tid}{{transform-box:fill-box;transform-origin:100% 50%;"
-        f"animation:{tid} {fnum(phase_dur)}s linear infinite}}"
-        f"@keyframes {tid}{{0%{{transform:scaleX(1)}}"
+        f".thd{{transform-box:fill-box;transform-origin:100% 50%;"
+        f"animation:thd {fnum(cyc)}s linear infinite}}"
+        f"@keyframes thd{{0%{{transform:scaleX(1)}}"
         f"{p(ts)}%{{transform:scaleX(1);animation-timing-function:steps({n},end)}}"
         f"{p(te)}%,100%{{transform:scaleX(0)}}}}"
-    )
-    d.rect(x * S, (y - 0.5) * S, (n * 8 * gs + 1) * S, (8 * gs + 1.5) * S, bg, cls=tid)
-
-
-def build_card(fname, move, flavor, chips, pp, rows, link_label, icon, icon_colors=None):
-    S = 4
-    H = 40 + len(rows) * 7 + 22
-    d = Doc(160 * S, H * S)
-    dbox(d, S, 0, 0, 160, H)
-
-    head_gs = 0.75 if len(move) * 6 <= 128 else 0.625
-    _typed_line(d, S, 8, 7, move, 10.0, 0.4, gs=head_gs)
-    d.css.append(
-        "@keyframes fadein{0%,24%{opacity:0}26%,100%{opacity:1}}"
+        "@keyframes fadein{0%,24%{opacity:0}27%,100%{opacity:1}}"
         ".fdin{animation:fadein 10s linear infinite}"
         "@keyframes blink{0%,54%{opacity:1}55%,100%{opacity:0}}"
         ".blink{animation:blink 1.1s steps(1,end) infinite}"
     )
-    d.add('<g class="fdin">')
-    d.text(8 * S, 17 * S, flavor, scale=S * 0.625, fill=G1)
-    d.add("</g>")
-    blit_map(d, S, 140, 5, icon, colors=icon_colors or {"#": G0, "o": G1, "+": G2, "-": G3})
+    d.rect(17 * S, 14 * S, (n * 8 + 3) * S, 12 * S, hg, cls="thd")
+    blit_map(d, S, 292, 11, icon, icon_colors)
 
-    px(d, S, 6, 27, 148, 1, G1)
+    d.add('<g class="fdin">')
+    d.text(16 * S, 42 * S, flavor, scale=S * 0.75, fill=MUT)
+    d.add("</g>")
 
     # type chips + PP
-    cx = 8
+    cx = 16
     for chip in chips:
-        w = len(chip) * 5 + 8
-        px(d, S, cx, 31, w, 11, G0)
-        px(d, S, cx + 1, 32, w - 2, 9, G3)
-        d.text((cx + 4) * S, 34 * S, chip, scale=S * 0.625, fill=G0)
-        cx += w + 4
+        cbg, ctx = TYPE_COLORS[chip]
+        w = len(chip) * 6 + 12
+        rbox(d, S, cx, 56, w, 16, cbg, border="#00000030", b=1)
+        d.text((cx + 6) * S, 61 * S, chip, scale=S * 0.75, fill=ctx)
+        cx += w + 6
     pp_txt = f"PP {pp}"
-    d.text((152 - len(pp_txt) * 5) * S, 34 * S, pp_txt, scale=S * 0.625, fill=G0)
+    d.text((304 - len(pp_txt) * 6) * S, 61 * S, pp_txt, scale=S * 0.75, fill="#607090")
 
-    y = 48
+    px(d, S, 12, 80, 296, 1, "#d4d8e0")
+    y = 88
     for label, value in rows:
-        d.text(10 * S, y * S, label, scale=S * 0.5, fill=G1)
-        d.text(44 * S, y * S, value, scale=S * 0.5, fill=G0)
-        y += 7
-    px(d, S, 6, y + 1, 148, 1, G1)
-    d.tri_right(8 * S, (y + 6) * S, S * 0.625, fill=G0, cls="blink")
-    d.text(15 * S, (y + 5) * S, link_label, scale=S * 0.625, fill=G0)
+        d.text(20 * S, y * S, label, scale=S * 0.75, fill=MUT)
+        d.text(92 * S, y * S, value, scale=S * 0.75, fill=TXT)
+        y += 13
+    px(d, S, 12, y + 1, 296, 1, "#d4d8e0")
+    d.tri_right(18 * S, (y + 8) * S, S * 0.8, fill=RED, cls="blink")
+    lw = d.text(28 * S, (y + 7) * S, link_label, scale=S * 0.75, fill=LINK)
+    px(d, S, 28, y + 15, lw / S, 1, "#88a8e0")
     d.save(fname)
 
 
+# ---------------------------------------------------------------- bag / trainer
+
+
 def build_bag():
-    S = 4
+    S = 2
     items = [
         ("PYTHON", "x99"),
         ("POSTGRES", "x64"),
@@ -641,137 +728,160 @@ def build_bag():
         ("BASH", "x255"),
         ("CANCEL", ""),
     ]
-    H = 20 + len(items) * 12 + 10
-    d = Doc(160 * S, H * S)
-    dbox(d, S, 0, 0, 160, H)
-    d.text(10 * S, 8 * S, "COLE checked the BAG...", scale=S * 0.75, fill=G1)
-    px(d, S, 6, 19, 148, 1, G1)
+    H = 52 + len(items) * 16 + 10
+    d = Doc(320 * S, H * S, ns="bag_")
+    rbox(d, S, 0, 0, 320, H, PANEL, border=NAVY, b=2)
+    og = d.grad("og", "#f0a030", "#c87818")
+    rbox(d, S, 8, 8, 304, 26, og, border="#8a5410", b=1)
+    d.add(f'<path d="{rpath(S, 10, 10, 300, 7)}" fill="rgba(255,255,255,0.2)"/>')
+    d.text_shadow(18 * S, 16 * S, "BAG", scale=S, shadow="rgba(90,50,0,.55)", dy=S)
+    d.text(120 * S, 18 * S, "COLE checked the BAG...", scale=S * 0.625, fill="#fff2dc")
+
     for i, (name, qty) in enumerate(items):
-        y = 25 + i * 12
-        d.text(24 * S, y * S, name, scale=S, fill=G0)
+        y = 46 + i * 16
+        if i % 2 == 0:
+            px(d, S, 12, y - 3, 296, 15, PANEL_ALT)
+        d.text(34 * S, y * S, name, scale=S, fill=TXT)
         if qty:
-            d.text((150 - len(qty) * 8) * S, y * S, qty, scale=S, fill=G0)
-    # cursor steps through the items
+            d.text((306 - len(qty) * 8) * S, y * S, qty, scale=S, fill="#607090")
     n = len(items)
     cyc = n * 1.1
     p = lambda t: fnum(t / cyc * 100)
     frames = []
     for i in range(n):
         a, b = i * 1.1, (i + 1) * 1.1
-        frames.append(f"{p(a)}%,{p(b - 0.02)}%{{transform:translateY({i * 12 * S}px)}}")
+        frames.append(f"{p(a)}%,{p(b - 0.02)}%{{transform:translateY({i * 16 * S}px)}}")
     d.css.append(
         f".bcur{{animation:bcur {fnum(cyc)}s linear infinite}}"
         f"@keyframes bcur{{0%{{transform:translateY(0)}}{''.join(frames)}100%{{transform:translateY(0)}}}}"
     )
     d.add('<g class="bcur">')
-    d.tri_right(12 * S, 25 * S, S, fill=G0)
+    d.tri_right(18 * S, 46 * S, S, fill=RED)
     d.add("</g>")
     d.save("bag.svg")
 
 
 def build_trainer():
-    S = 4
-    H = 116
-    d = Doc(160 * S, H * S)
-    dbox(d, S, 0, 0, 160, H)
-    d.text(10 * S, 8 * S, "TRAINER CARD", scale=S * 0.875, fill=G0)
-    d.text(102 * S, 9 * S, "IDNo.00094", scale=S * 0.625, fill=G1)
-    px(d, S, 6, 19, 148, 1, G1)
+    S = 2
+    H = 152
+    d = Doc(320 * S, H * S)
+    rbox(d, S, 0, 0, 320, H, "#16161e", border="#c8a040", b=2)
+    # red corner sweep
+    d.add(f'<path d="M{240 * S} {2 * S} L{318 * S} {2 * S} L{318 * S} {40 * S} Z" fill="#b02838"/>')
+    d.add(f'<path d="M{262 * S} {2 * S} L{318 * S} {2 * S} L{318 * S} {30 * S} Z" fill="#d84048"/>')
+
+    d.text(16 * S, 12 * S, "TRAINER CARD", scale=S, fill="#e8c048")
+    d.text(160 * S, 14 * S, "IDNo.00094", scale=S * 0.75, fill="#8890a8")
+    px(d, S, 12, 30, 296, 1, "#c8a040")
 
     gw, gh = GENGAR.width, GENGAR.height
-    d.add(f'<g class="bob">{image_tag(GENGAR_URI, 10 * S, 24 * S, gw * S, gh * S)}</g>')
+    scale_g = 64 / gh
     d.css.append(
-        "@keyframes bob{0%,49.9%{transform:translateY(0)}50%,100%{transform:translateY(-2px)}}"
-        ".bob{animation:bob 1.4s steps(1,end) infinite}"
+        "@keyframes bob{0%,49.9%{transform:translateY(0)}50%,100%{transform:translateY(-3px)}}"
+        ".bob{animation:bob 1.6s steps(1,end) infinite}"
     )
+    rbox(d, S, 232, 40, 76, 76, "#20202c", border="#3a3a48", b=1)
+    d.add(f'<g class="bob">{image_tag(GENGAR_URI, (270 - gw * scale_g / 2) * S, 46 * S, gw * scale_g * S, 64 * S)}</g>')
 
-    rows = [("NAME/", "COLE"), ("CLASS/", "FULL-STACK"), ("MONEY/", "$?,???,???"), ("TIME/", "999:59")]
-    y = 26
+    rows = [("NAME", "COLE"), ("CLASS", "FULL-STACK"), ("MONEY", "$?,???,???"), ("TIME", "999:59")]
+    y = 42
     for label, value in rows:
-        d.text(66 * S, y * S, label, scale=S * 0.625, fill=G1)
-        d.text(100 * S, y * S, value, scale=S * 0.625, fill=G0)
-        y += 12
+        d.text(16 * S, y * S, label, scale=S * 0.75, fill="#8890a8")
+        d.text(76 * S, y * S, value, scale=S * 0.75, fill="#f0f0f4")
+        y += 14
 
-    px(d, S, 6, 76, 148, 1, G1)
-    d.text(10 * S, 81 * S, "BADGES", scale=S * 0.75, fill=G1)
+    px(d, S, 12, 102, 208, 1, "#3a3a48")
+    d.text(16 * S, 108 * S, "BADGES", scale=S * 0.75, fill="#e8c048")
 
     badges = [
-        (BADGE_CIRCLE, "PYTHN"),
-        (BADGE_DIAMOND, "PGSQL"),
-        (BADGE_TRIANGLE, "SUPBS"),
-        (GEAR, "ACTNS"),
-        (BADGE_HEX, "NTLFY"),
-        (BASH_BADGE, "BASH"),
-        (None, "????"),
-        (None, "????"),
+        (BADGE_CIRCLE, "PYTHN", "#e0b84c", "#806020"),
+        (BADGE_DIAMOND, "PGSQL", "#c0c8d0", "#606870"),
+        (BADGE_TRIANGLE, "SUPBS", "#c08850", "#6a4420"),
+        (GEAR, "ACTNS", "#88a0b8", "#40506a"),
+        (BADGE_HEX, "NTLFY", "#78c8b0", "#2a6a58"),
+        (TERMINAL, "BASH", "#404a58", "#40d060"),
+        (None, "????", None, None),
+        (None, "????", None, None),
     ]
-    d.css.append(
-        "@keyframes glint{0%,88%{opacity:0}90%,94%{opacity:.85}96%,100%{opacity:0}}"
-    )
-    for i, (art, label) in enumerate(badges):
-        bx = 10 + i * 18
+    d.css.append("@keyframes glint{0%,88%{opacity:0}90%,94%{opacity:.7}96%,100%{opacity:0}}")
+    for i, (art, label, fill_c, edge_c) in enumerate(badges):
+        bx = 16 + i * 26
         if art is not None:
-            blit_map(d, S, bx, 91, art)
+            if art is TERMINAL:
+                colors = {"#": fill_c, "-": "#181c24"}
+                blit_map(d, S, bx, 120, art, colors)
+                px(d, S, bx + 2, 122, 1, 1, edge_c)
+                px(d, S, bx + 3, 123, 1, 1, edge_c)
+                px(d, S, bx + 2, 124, 1, 1, edge_c)
+                px(d, S, bx + 4, 126, 4, 1, edge_c)
+            else:
+                blit_map(d, S, bx, 120, art, {"#": edge_c, "+": fill_c, "-": fill_c, "o": fill_c})
             d.css.append(
                 f".gl{i}{{opacity:0;animation:glint 9s linear infinite;animation-delay:{fnum(i * 0.9)}s}}"
             )
-            d.rect(bx * S, 91 * S, 12 * S, 12 * S, G3, cls=f"gl{i}")
+            d.rect(bx * S, 120 * S, 12 * S, 12 * S, "#ffffff", cls=f"gl{i}")
         else:
             for xx in range(0, 12, 2):
-                px(d, S, bx + xx, 91, 1, 1, G2)
-                px(d, S, bx + xx, 102, 1, 1, G2)
-                px(d, S, bx, 91 + xx, 1, 1, G2)
-                px(d, S, bx + 11, 91 + xx, 1, 1, G2)
-        lw = len(label) * 8 * 0.375
-        d.text((bx + 6) * S - lw * S / 2, 106 * S, label, scale=S * 0.375, fill=G1 if art else G2)
+                px(d, S, bx + xx, 120, 1, 1, "#3a3a48")
+                px(d, S, bx + xx, 131, 1, 1, "#3a3a48")
+                px(d, S, bx, 120 + xx, 1, 1, "#3a3a48")
+                px(d, S, bx + 11, 120 + xx, 1, 1, "#3a3a48")
+        lw = len(label) * 8 * 0.5
+        d.text((bx + 6) * S - lw * S / 2, 135 * S, label, scale=S * 0.5, fill="#8890a8" if art else "#4a4a58")
     d.save("trainer-card.svg")
 
 
+# ---------------------------------------------------------------- divider / save / contact
+
+
 def build_divider():
-    S = 4
-    d = Doc(160 * S, 20 * S)
+    S = 2
+    d = Doc(320 * S, 30 * S)
     d.css.append(
-        "@keyframes rustle{0%,46%{transform:translateX(0)}50%,96%{transform:translateX(1px)}100%{transform:translateX(0)}}"
+        "@keyframes rustle{0%,46%{transform:translateX(0)}50%,96%{transform:translateX(2px)}100%{transform:translateX(0)}}"
         ".rus{animation:rustle 1.3s steps(1,end) infinite}"
-        "@keyframes ghost{0%,70%{transform:translateY(19px);opacity:0}"
-        "75%,88%{transform:translateY(0);opacity:1}93%,100%{transform:translateY(19px);opacity:0}}"
+        "@keyframes ghost{0%,70%{transform:translateY(30px);opacity:0}"
+        "75%,88%{transform:translateY(0);opacity:1}93%,100%{transform:translateY(30px);opacity:0}}"
         ".gho{animation:ghost 11s steps(7) infinite}"
     )
-    gh = 16
-    gw = GENGAR_SHADOW.width * gh / GENGAR_SHADOW.height
-    d.add(f'<g class="gho">{image_tag(GENGAR_SHADOW_URI, 80 * S - gw * S / 2, 2 * S, gw * S, gh * S)}</g>')
-    for i in range(10):
-        cls = "rus" if i in (2, 7) else None
+    gh_l = 24
+    gw = GENGAR_SHADOW.width * gh_l / GENGAR_SHADOW.height
+    d.add(f'<g class="gho">{image_tag(GENGAR_SHADOW_URI, 160 * S - gw * S / 2, 1 * S, gw * S, gh_l * S)}</g>')
+    for i in range(20):
+        cls = "rus" if i in (4, 15) else None
         if cls:
             d.add(f'<g class="{cls}">')
-        blit_map(d, S, i * 16, 11, GRASS, colors={"#": G1 if i % 2 else G0})
+        blit_map(d, S, i * 16, 22, GRASS, {"#": "#2f8f4a" if i % 2 else "#1f6b36"})
         if cls:
             d.add("</g>")
     d.save("divider.svg")
 
 
 def build_save():
-    S = 4
-    d = Doc(160 * S, 40 * S)
-    dbox(d, S, 0, 0, 160, 40)
-    d.text(8 * S, 9 * S, "Would you like to", scale=S * 0.75, fill=G0)
-    d.text(8 * S, 21 * S, "SAVE the game?", scale=S * 0.75, fill=G0)
-    dbox(d, S, 112, 3, 44, 34)
-    d.text(126 * S, 9 * S, "YES", scale=S, fill=G0)
-    d.text(126 * S, 23 * S, "NO", scale=S, fill=G0)
+    S = 2
+    d = Doc(320 * S, 60 * S)
+    rbox(d, S, 0, 0, 320, 60, PANEL, border=NAVY, b=2)
+    d.text(16 * S, 14 * S, "Would you like to", scale=S * 0.875, fill=TXT)
+    d.text(16 * S, 32 * S, "SAVE the game?", scale=S * 0.875, fill=TXT)
+    rbox(d, S, 232, 6, 78, 48, PANEL, border=NAVY, b=2)
+    px(d, S, 238, 12, 66, 14, "#d8e8f8")
+    d.text(256 * S, 15 * S, "YES", scale=S * 0.875, fill=TXT)
+    d.text(256 * S, 35 * S, "NO", scale=S * 0.875, fill=TXT)
     d.css.append("@keyframes blink{0%,54%{opacity:1}55%,100%{opacity:0}}.blink{animation:blink 1.1s steps(1,end) infinite}")
-    d.tri_right(118 * S, 10 * S, S, fill=G0, cls="blink")
+    d.tri_right(244 * S, 15 * S, S * 0.875, fill=RED, cls="blink")
     d.save("save.svg")
 
 
-def build_contact(name, label):
-    S = 4
-    w_log = max(len(label) * 8 + 28, 60)
-    d = Doc(w_log * S, 16 * S)
-    dbox(d, S, 0, 0, w_log, 16)
-    d.tri_right(8 * S, 5 * S, S * 0.75, fill=G0, cls="blink")
+def build_contact(name, label, c1, c2, bd, sh):
+    S = 2
+    w_log = len(label) * 8 + 44
+    d = Doc(w_log * S, 30 * S, ns=f"c{name}_")
+    g = d.grad("g", c1, c2)
+    rbox(d, S, 0, 0, w_log, 30, g, border=bd, b=2)
+    d.add(f'<path d="{rpath(S, 3, 3, w_log - 6, 8)}" fill="rgba(255,255,255,0.22)"/>')
+    d.tri_right(12 * S, 11 * S, S * 0.8, fill="#ffffff", cls="blink")
     d.css.append("@keyframes blink{0%,54%{opacity:1}55%,100%{opacity:0}}.blink{animation:blink 1.1s steps(1,end) infinite}")
-    d.text(16 * S, 4 * S, label, scale=S, fill=G0)
+    d.text_shadow(24 * S, 11 * S, label, scale=S, shadow=sh, dy=S)
     d.save(f"btn-{name}.svg")
 
 
@@ -779,14 +889,9 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     print("building assets:")
     build_hero()
-    build_button("fight", "FIGHT")
-    build_button("bag", "BAG")
-    build_button("pokemon", "POKéMON")
-    build_button("run", "RUN")
-    build_header("fight", "FIGHT")
-    build_header("bag", "BAG")
-    build_header("pokemon", "POKéMON")
-    build_header("run", "RUN")
+    for n in NAV_STYLES:
+        build_button(n)
+        build_header(n)
     build_card(
         "card-haywire.svg",
         "COLE used HAYWIRE!",
@@ -794,15 +899,16 @@ def main():
         ["GRASS", "ELECTRIC"],
         "16/16",
         [
-            ("pipeline", "Python scrape/publish cron"),
-            ("data", "Supabase Postgres, RLS lock"),
-            ("frontend", "static site + Netlify fns"),
+            ("pipeline", "Python scrape/publish, GH cron"),
+            ("data", "Supabase Postgres, deny-all RLS"),
+            ("frontend", "static site + Netlify functions"),
             ("email", "Beehiiv newsletter"),
-            ("tests", "policy tests, 16x5 verdicts"),
-            ("ci", "ruff + eslint, 0 findings"),
+            ("tests", "policy-as-code, 16x5 verdicts"),
+            ("ci", "ruff + eslint, zero findings"),
         ],
         "haywireag.com",
         WHEAT,
+        {"#": "#f8d048"},
     )
     build_card(
         "card-agentfusion.svg",
@@ -812,19 +918,20 @@ def main():
         "24/24",
         [
             ("routing", "Claude Code + OpenAI Codex"),
-            ("skills", "MD+YAML task profiles"),
+            ("skills", "Markdown+YAML skill profiles"),
             ("language", "Python 3.11+"),
             ("license", "MIT"),
         ],
-        "ColeGlasgow/agent-fusion",
+        "github.com/ColeGlasgow/agent-fusion",
         ROBOT,
+        {"#": "#d8dce8", "o": "#5878c8"},
     )
     build_bag()
     build_trainer()
     build_divider()
     build_save()
-    build_contact("email", "EMAIL")
-    build_contact("site", "HAYWIREAG.COM")
+    build_contact("email", "EMAIL", "#e878a0", "#c04878", "#8a2c50", "rgba(90,20,50,.55)")
+    build_contact("site", "HAYWIREAG.COM", "#5880d8", "#3050a0", "#1c3c78", "rgba(10,30,80,.55)")
     print("done.")
 
 
