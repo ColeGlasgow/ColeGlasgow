@@ -396,6 +396,76 @@ BADGE_TRIANGLE = shape_badge(lambda x, y: y >= 2 and abs(x - 5.5) <= (y - 1) * 0
 BADGE_HEX = shape_badge(lambda x, y: abs(x - 5.5) <= 5.5 - abs(y - 5.5) * 0.5 and 0 <= y < 12)
 
 
+
+# Cole: anime-style trainer — messy blond hair, navy suit, coffee mug in hand
+COLE_SPRITE = [
+    "..........oooooo..........",
+    ".......ooohhhhhhoo........",
+    "......ohhhhHHhhhhho.......",
+    ".....ohhHHhhhhhhhhho......",
+    "....ohhHhhhhhhhhhHhho.....",
+    "....ohhhhhhhhhhhhhhho.....",
+    "...ohhhhhhhhhhhhhhhho.....",
+    "...ohhhhhhhhhhhhhhhhho....",
+    "...ohhhhhhhhhhhhhhhhho....",
+    "...ohhohhhhhhhhhohhhho....",
+    "...oho.hhhhhhhh..ohho.....",
+    "....o.osssssssso..oo......",
+    "......ossssssssso.........",
+    ".....ossssssssssso........",
+    ".....osssssssssssso.......",
+    ".....oss--sss--sso........",
+    ".....ossssssssssso........",
+    ".....odsssssssssdo........",
+    "......ossssssssso.........",
+    ".......ossssssdo..........",
+    "........ossssd............",
+    "......owwwsswwwo..........",
+    "....oowwwnnnnwwwoo........",
+    "...onnwwnnnnnnwwnnno......",
+    "..onnnnwnnnnnnwnnnnno.....",
+    ".onnnnnwnnnnnnwnnnnnno....",
+    ".onnnnnwwnnnnwwnnnnnno....",
+    ".onnnnnnwwwwwwnnnnnnno....",
+    ".onnnnnnwtwwtwnnnnnnno....",
+    "ommmmsnnnwwwwnnnnnnnno....",
+    "ommgmsnnnwtwwnnnnnnnno....",
+    "ommgmsnnnwwwwnnnnnnnno....",
+    "ommmmsnnnnwwnnnnnnnno.....",
+    ".oooosnnnnwwnnnnnnnno.....",
+    "....onnnnnnnnnnnnnnno.....",
+    "....onnnnnnnnnnnnnno......",
+    "....onnnnnnnnnnnnnno......",
+    "....onnnnnnnnnnnnno.......",
+    "....onnnnnnnnnnnnno.......",
+    "....onnnnnnnnnnnno........",
+    "....onnnnn..nnnnno........",
+    "....onnnno..onnnno........",
+    "....onnnno..onnnno........",
+    "....onnnno..onnnno........",
+    "....onnnno..onnnno........",
+    "....onnnno..onnnno........",
+    "....onnnno..onnnno........",
+    "....oooooo..oooooo........",
+    "....obbbbo..obbbbo........",
+    ".....oooo....oooo.........",
+]
+COLE_COLORS = {
+    "o": "#262630",
+    "h": "#cfa14e",
+    "H": "#ecc985",
+    "s": "#f2c9a2",
+    "d": "#d9a87d",
+    "-": "#262630",
+    "n": "#2b3552",
+    "w": "#f2f2f6",
+    "t": "#1c2436",
+    "m": "#f6f6fa",
+    "g": "#c9c9d6",
+    "b": "#1c1c22",
+}
+
+
 # ---------------------------------------------------------------- hero (DS Lite)
 
 # screen logical size 256x192 at scale 2
@@ -469,10 +539,11 @@ def build_hero():
         d.add(f'<rect x="{hx - 26}" y="{top_h - 4}" width="52" height="{hinge_h + 8}" rx="9" fill="#b8b8c2"/>')
     d.add(f'<circle cx="{W_HERO / 2}" cy="{top_h + hinge_h / 2 + 4}" r="3.5" fill="#8a8a96"/>')  # mic
 
+    d.defs.append(f'<clipPath id="hero_scr"><rect width="{SCR_W}" height="{SCR_H}"/></clipPath>')
     # ---- top screen bezel + screen
     d.add(f'<rect x="{MARG - 14}" y="24" width="{SCR_W + 28}" height="{SCR_H + 28}" rx="10" fill="{BEZEL}"/>')
     TX, TY = MARG, 38
-    d.add(f'<g transform="translate({TX},{TY})" shape-rendering="crispEdges">')
+    d.add(f'<g transform="translate({TX},{TY})" clip-path="url(#hero_scr)" shape-rendering="crispEdges">')
     s = SS
 
     sky = d.grad("sky", "#78b8e8", "#d0ecf8")
@@ -485,6 +556,16 @@ def build_hero():
     # enemy platform + gengar
     plat = d.grad("plat", "#70b858", "#4e9040")
     d.add(f'<ellipse cx="{186 * s}" cy="{122 * s}" rx="{60 * s}" ry="{15 * s}" fill="{plat}"/>')
+    # Cole stands behind his Gengar, coffee in hand
+    blit_map(d, s, 122, 60, COLE_SPRITE, COLE_COLORS)
+    d.css.append(
+        "@keyframes stm{0%{transform:translateY(0);opacity:.75}60%{opacity:.3}"
+        "100%{transform:translateY(-6px);opacity:0}}"
+        ".st1{animation:stm 2.2s linear infinite}"
+        ".st2{opacity:0;animation:stm 2.2s linear infinite;animation-delay:1.1s}"
+    )
+    px(d, s, 123, 84, 1, 2, "#e8eef4", cls="st1")
+    px(d, s, 125, 82, 1, 2, "#dce6f0", cls="st2")
     gw, gh = GENGAR.width, GENGAR.height
     scale_g = 70 / gh
     d.css.append(
@@ -519,10 +600,11 @@ def build_hero():
         (4.0, ["A wild COLE appeared!"]),
         (4.0, ["COLE is a FULL-STACK BUILDER!"]),
         (5.0, ["He writes the scraper, the CI,", "and reads the postmortem."]),
+        (5.0, ["He wrangles ENTERPRISE DATA at", "WELLMARK. Runs on coffee."]),
         (4.0, ["GENGAR is loafing around!"]),
-        (5.0, ["What will YOU do?"]),
+        (4.5, ["What will YOU do?"]),
     ]
-    _dialogue_phases(d, s, 22.0, phases, (4, 148, 248, 40), (14, 157, 13), PANEL)
+    _dialogue_phases(d, s, 26.5, phases, (4, 148, 248, 40), (14, 157, 13), PANEL)
     d.add("</g>")
 
     # speakers on the top half
@@ -533,7 +615,7 @@ def build_hero():
     # ---- bottom screen bezel + touch UI
     BY = top_h + hinge_h + 34
     d.add(f'<rect x="{MARG - 14}" y="{BY - 14}" width="{SCR_W + 28}" height="{SCR_H + 28}" rx="10" fill="{BEZEL}"/>')
-    d.add(f'<g transform="translate({MARG},{BY})" shape-rendering="crispEdges">')
+    d.add(f'<g transform="translate({MARG},{BY})" clip-path="url(#hero_scr)" shape-rendering="crispEdges">')
 
     touch_bg = d.grad("tbg", "#2c405e", "#16243c")
     d.add(f'<rect width="{SCR_W}" height="{SCR_H}" fill="{touch_bg}"/>')
@@ -720,6 +802,7 @@ def build_card(fname, move, flavor, chips, pp, rows, link_label, icon, icon_colo
 def build_bag():
     S = 2
     items = [
+        ("COFFEE", "x999"),
         ("PYTHON", "x99"),
         ("POSTGRES", "x64"),
         ("SUPABASE", "x32"),
@@ -763,7 +846,7 @@ def build_bag():
 
 def build_trainer():
     S = 2
-    H = 152
+    H = 158
     d = Doc(320 * S, H * S)
     rbox(d, S, 0, 0, 320, H, "#16161e", border="#c8a040", b=2)
     # red corner sweep
@@ -775,23 +858,25 @@ def build_trainer():
     px(d, S, 12, 30, 296, 1, "#c8a040")
 
     gw, gh = GENGAR.width, GENGAR.height
-    scale_g = 64 / gh
+    scale_g = 48 / gh
     d.css.append(
         "@keyframes bob{0%,49.9%{transform:translateY(0)}50%,100%{transform:translateY(-3px)}}"
         ".bob{animation:bob 1.6s steps(1,end) infinite}"
     )
     rbox(d, S, 232, 40, 76, 76, "#20202c", border="#3a3a48", b=1)
-    d.add(f'<g class="bob">{image_tag(GENGAR_URI, (270 - gw * scale_g / 2) * S, 46 * S, gw * scale_g * S, 64 * S)}</g>')
+    blit_map(d, S, 238, 62, COLE_SPRITE, COLE_COLORS)
+    d.add(f'<g class="bob">{image_tag(GENGAR_URI, (282 - gw * scale_g / 2) * S, 66 * S, gw * scale_g * S, 48 * S)}</g>')
 
-    rows = [("NAME", "COLE"), ("CLASS", "FULL-STACK"), ("MONEY", "$?,???,???"), ("TIME", "999:59")]
+    rows = [("NAME", "COLE"), ("CLASS", "FULL-STACK"), ("JOB", "DATA @ WELLMARK"),
+            ("MONEY", "$?,???,???"), ("TIME", "999:59")]
     y = 42
     for label, value in rows:
         d.text(16 * S, y * S, label, scale=S * 0.75, fill="#8890a8")
         d.text(76 * S, y * S, value, scale=S * 0.75, fill="#f0f0f4")
         y += 14
 
-    px(d, S, 12, 102, 208, 1, "#3a3a48")
-    d.text(16 * S, 108 * S, "BADGES", scale=S * 0.75, fill="#e8c048")
+    px(d, S, 12, 108, 208, 1, "#3a3a48")
+    d.text(16 * S, 114 * S, "BADGES", scale=S * 0.75, fill="#e8c048")
 
     badges = [
         (BADGE_CIRCLE, "PYTHN", "#e0b84c", "#806020"),
@@ -809,25 +894,25 @@ def build_trainer():
         if art is not None:
             if art is TERMINAL:
                 colors = {"#": fill_c, "-": "#181c24"}
-                blit_map(d, S, bx, 120, art, colors)
-                px(d, S, bx + 2, 122, 1, 1, edge_c)
-                px(d, S, bx + 3, 123, 1, 1, edge_c)
-                px(d, S, bx + 2, 124, 1, 1, edge_c)
-                px(d, S, bx + 4, 126, 4, 1, edge_c)
+                blit_map(d, S, bx, 126, art, colors)
+                px(d, S, bx + 2, 128, 1, 1, edge_c)
+                px(d, S, bx + 3, 129, 1, 1, edge_c)
+                px(d, S, bx + 2, 130, 1, 1, edge_c)
+                px(d, S, bx + 4, 132, 4, 1, edge_c)
             else:
-                blit_map(d, S, bx, 120, art, {"#": edge_c, "+": fill_c, "-": fill_c, "o": fill_c})
+                blit_map(d, S, bx, 126, art, {"#": edge_c, "+": fill_c, "-": fill_c, "o": fill_c})
             d.css.append(
                 f".gl{i}{{opacity:0;animation:glint 9s linear infinite;animation-delay:{fnum(i * 0.9)}s}}"
             )
-            d.rect(bx * S, 120 * S, 12 * S, 12 * S, "#ffffff", cls=f"gl{i}")
+            d.rect(bx * S, 126 * S, 12 * S, 12 * S, "#ffffff", cls=f"gl{i}")
         else:
             for xx in range(0, 12, 2):
-                px(d, S, bx + xx, 120, 1, 1, "#3a3a48")
-                px(d, S, bx + xx, 131, 1, 1, "#3a3a48")
-                px(d, S, bx, 120 + xx, 1, 1, "#3a3a48")
-                px(d, S, bx + 11, 120 + xx, 1, 1, "#3a3a48")
+                px(d, S, bx + xx, 126, 1, 1, "#3a3a48")
+                px(d, S, bx + xx, 137, 1, 1, "#3a3a48")
+                px(d, S, bx, 126 + xx, 1, 1, "#3a3a48")
+                px(d, S, bx + 11, 126 + xx, 1, 1, "#3a3a48")
         lw = len(label) * 8 * 0.5
-        d.text((bx + 6) * S - lw * S / 2, 135 * S, label, scale=S * 0.5, fill="#8890a8" if art else "#4a4a58")
+        d.text((bx + 6) * S - lw * S / 2, 141 * S, label, scale=S * 0.5, fill="#8890a8" if art else "#4a4a58")
     d.save("trainer-card.svg")
 
 

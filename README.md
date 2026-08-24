@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/console.svg" alt="A Nintendo DS playing a Diamond/Pearl-style battle: a wild COLE appeared! COLE is a full-stack builder. His Gengar faces your Pikachu on the top screen while the touch screen shows the FIGHT / BAG / PKMN / RUN menu." width="640">
+<img src="assets/console.svg" alt="A Nintendo DS playing a Diamond/Pearl-style battle: a wild COLE appeared! Cole — blond hair, navy suit, coffee in hand — stands behind his Gengar, facing your Pikachu. He is a full-stack builder who wrangles Enterprise Data at Wellmark and runs on coffee. The touch screen shows the FIGHT / BAG / PKMN / RUN menu." width="640">
 
 <br><br>
 
@@ -32,7 +32,7 @@
 
 <img src="assets/h-bag.svg" alt="BAG" width="640">
 
-<img src="assets/bag.svg" alt="COLE checked the BAG: Python x99, Postgres x64, Supabase x32, GitHub Actions x24, Netlify x16, Bash x255, Cancel." width="640">
+<img src="assets/bag.svg" alt="COLE checked the BAG: Coffee x999, Python x99, Postgres x64, Supabase x32, GitHub Actions x24, Netlify x16, Bash x255, Cancel." width="640">
 
 </div>
 
@@ -42,7 +42,7 @@
 
 <img src="assets/h-pokemon.svg" alt="POKéMON" width="640">
 
-<img src="assets/trainer-card.svg" alt="Trainer card. ID No. 00094. Name: COLE. Class: full-stack. Money: unknown. Time: 999:59. Badges earned: Python, PostgreSQL, Supabase, GitHub Actions, Netlify, Bash — two slots still empty." width="640">
+<img src="assets/trainer-card.svg" alt="Trainer card. ID No. 00094. Name: COLE. Class: full-stack. Job: Data at Wellmark. Money: unknown. Time: 999:59. Photo of Cole with his Gengar. Badges earned: Python, PostgreSQL, Supabase, GitHub Actions, Netlify, Bash — two slots still empty." width="640">
 
 </div>
 
