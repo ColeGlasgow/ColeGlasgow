@@ -54,7 +54,7 @@
 
 <br><br>
 
-*You can't run from a wild COLE... but you CAN trade.*
+*You Lost!*
 
 <a href="mailto:coletglasgow@gmail.com"><img src="assets/btn-email.svg" alt="Email coletglasgow@gmail.com" height="58"></a>&nbsp;
 <a href="https://haywireag.com"><img src="assets/btn-site.svg" alt="haywireag.com" height="58"></a>
