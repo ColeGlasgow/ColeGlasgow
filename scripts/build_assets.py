@@ -265,9 +265,11 @@ def image_tag(uri, x, y, w, h, cls=None):
 
 
 GENGAR = load_sprite(os.path.join(SRC, "gengar-dp.png"))          # ~58x53
+VOLKNER = load_sprite(os.path.join(SRC, "volkner.png"))           # ~38x78
 PIKACHU = load_sprite(os.path.join(SRC, "pikachu-dp-back.png"))   # ~70x69
 GENGAR_SHADOW = silhouette(os.path.join(SRC, "gengar-dp.png"))
 GENGAR_URI = b64uri(GENGAR)
+VOLKNER_URI = b64uri(VOLKNER)
 PIKA_URI = b64uri(PIKACHU)
 GENGAR_SHADOW_URI = b64uri(GENGAR_SHADOW)
 
@@ -397,74 +399,6 @@ BADGE_HEX = shape_badge(lambda x, y: abs(x - 5.5) <= 5.5 - abs(y - 5.5) * 0.5 an
 
 
 
-# Cole: anime-style trainer — messy blond hair, navy suit, coffee mug in hand
-COLE_SPRITE = [
-    "..........oooooo..........",
-    ".......ooohhhhhhoo........",
-    "......ohhhhHHhhhhho.......",
-    ".....ohhHHhhhhhhhhho......",
-    "....ohhHhhhhhhhhhHhho.....",
-    "....ohhhhhhhhhhhhhhho.....",
-    "...ohhhhhhhhhhhhhhhho.....",
-    "...ohhhhhhhhhhhhhhhhho....",
-    "...ohhhhhhhhhhhhhhhhho....",
-    "...ohhohhhhhhhhhohhhho....",
-    "...oho.hhhhhhhh..ohho.....",
-    "....o.osssssssso..oo......",
-    "......ossssssssso.........",
-    ".....ossssssssssso........",
-    ".....osssssssssssso.......",
-    ".....oss--sss--sso........",
-    ".....ossssssssssso........",
-    ".....odsssssssssdo........",
-    "......ossssssssso.........",
-    ".......ossssssdo..........",
-    "........ossssd............",
-    "......owwwsswwwo..........",
-    "....oowwwnnnnwwwoo........",
-    "...onnwwnnnnnnwwnnno......",
-    "..onnnnwnnnnnnwnnnnno.....",
-    ".onnnnnwnnnnnnwnnnnnno....",
-    ".onnnnnwwnnnnwwnnnnnno....",
-    ".onnnnnnwwwwwwnnnnnnno....",
-    ".onnnnnnwtwwtwnnnnnnno....",
-    "ommmmsnnnwwwwnnnnnnnno....",
-    "ommgmsnnnwtwwnnnnnnnno....",
-    "ommgmsnnnwwwwnnnnnnnno....",
-    "ommmmsnnnnwwnnnnnnnno.....",
-    ".oooosnnnnwwnnnnnnnno.....",
-    "....onnnnnnnnnnnnnnno.....",
-    "....onnnnnnnnnnnnnno......",
-    "....onnnnnnnnnnnnnno......",
-    "....onnnnnnnnnnnnno.......",
-    "....onnnnnnnnnnnnno.......",
-    "....onnnnnnnnnnnno........",
-    "....onnnnn..nnnnno........",
-    "....onnnno..onnnno........",
-    "....onnnno..onnnno........",
-    "....onnnno..onnnno........",
-    "....onnnno..onnnno........",
-    "....onnnno..onnnno........",
-    "....onnnno..onnnno........",
-    "....oooooo..oooooo........",
-    "....obbbbo..obbbbo........",
-    ".....oooo....oooo.........",
-]
-COLE_COLORS = {
-    "o": "#262630",
-    "h": "#cfa14e",
-    "H": "#ecc985",
-    "s": "#f2c9a2",
-    "d": "#d9a87d",
-    "-": "#262630",
-    "n": "#2b3552",
-    "w": "#f2f2f6",
-    "t": "#1c2436",
-    "m": "#f6f6fa",
-    "g": "#c9c9d6",
-    "b": "#1c1c22",
-}
-
 
 # ---------------------------------------------------------------- hero (DS Lite)
 
@@ -556,16 +490,10 @@ def build_hero():
     # enemy platform + gengar
     plat = d.grad("plat", "#70b858", "#4e9040")
     d.add(f'<ellipse cx="{186 * s}" cy="{122 * s}" rx="{60 * s}" ry="{15 * s}" fill="{plat}"/>')
-    # Cole stands behind his Gengar, coffee in hand
-    blit_map(d, s, 122, 60, COLE_SPRITE, COLE_COLORS)
-    d.css.append(
-        "@keyframes stm{0%{transform:translateY(0);opacity:.75}60%{opacity:.3}"
-        "100%{transform:translateY(-6px);opacity:0}}"
-        ".st1{animation:stm 2.2s linear infinite}"
-        ".st2{opacity:0;animation:stm 2.2s linear infinite;animation-delay:1.1s}"
-    )
-    px(d, s, 123, 84, 1, 2, "#e8eef4", cls="st1")
-    px(d, s, 125, 82, 1, 2, "#dce6f0", cls="st2")
+    # Cole stands behind his Gengar
+    vw, vh = VOLKNER.width, VOLKNER.height
+    scale_v = 64 / vh
+    d.add(image_tag(VOLKNER_URI, 120 * s, (112 - 64) * s, vw * scale_v * s, 64 * s))
     gw, gh = GENGAR.width, GENGAR.height
     scale_g = 70 / gh
     d.css.append(
@@ -864,7 +792,9 @@ def build_trainer():
         ".bob{animation:bob 1.6s steps(1,end) infinite}"
     )
     rbox(d, S, 232, 40, 76, 76, "#20202c", border="#3a3a48", b=1)
-    blit_map(d, S, 238, 62, COLE_SPRITE, COLE_COLORS)
+    vw, vh = VOLKNER.width, VOLKNER.height
+    scale_v = 52 / vh
+    d.add(image_tag(VOLKNER_URI, 240 * S, 60 * S, vw * scale_v * S, 52 * S))
     d.add(f'<g class="bob">{image_tag(GENGAR_URI, (282 - gw * scale_g / 2) * S, 66 * S, gw * scale_g * S, 48 * S)}</g>')
 
     rows = [("NAME", "COLE"), ("CLASS", "FULL-STACK"), ("JOB", "DATA @ WELLMARK"),

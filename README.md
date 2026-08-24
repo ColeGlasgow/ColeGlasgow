@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/console.svg" alt="A Nintendo DS playing a Diamond/Pearl-style battle: a wild COLE appeared! Cole — blond hair, navy suit, coffee in hand — stands behind his Gengar, facing your Pikachu. He is a full-stack builder who wrangles Enterprise Data at Wellmark and runs on coffee. The touch screen shows the FIGHT / BAG / PKMN / RUN menu." width="640">
+<img src="assets/console.svg" alt="A Nintendo DS playing a Diamond/Pearl-style battle: a wild COLE appeared! Cole — a blond trainer in a blue jacket — stands behind his Gengar with an arm raised, facing your Pikachu. He is a full-stack builder who wrangles Enterprise Data at Wellmark and runs on coffee. The touch screen shows the FIGHT / BAG / PKMN / RUN menu." width="640">
 
 <br><br>
 
@@ -65,6 +65,6 @@
 
 `COLE saved the game!`
 
-<sub>Built with a custom pixel-art SVG generator (<a href="scripts/build_assets.py">scripts/build_assets.py</a>). Font: Press Start 2P (OFL). Sprites via PokeAPI — Pokémon © Nintendo/Game Freak.</sub>
+<sub>Built with a custom pixel-art SVG generator (<a href="scripts/build_assets.py">scripts/build_assets.py</a>). Font: Press Start 2P (OFL). Sprites via PokeAPI &amp; Pokémon Showdown — Pokémon © Nintendo/Game Freak.</sub>
 
 </div>
