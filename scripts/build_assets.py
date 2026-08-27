@@ -32,6 +32,17 @@ LINK = "#2860c0"
 RED = "#e04838"
 CREAM = "#f0f0e0"
 
+# ---- trainer-card palette (shared by the trainer card and the dex entries)
+CARD_BG = "#16161e"      # card panel
+CARD_BD = "#c8a040"      # gold border
+GOLD = "#e8c048"         # section titles
+SUB = "#8890a8"          # muted label text
+VAL = "#f0f0f4"          # value text
+INNER_BG = "#20202c"     # inset sprite/portrait box
+INNER_BD = "#3a3a48"
+RULE_D = "#3a3a48"
+LINK_D = "#78a8f0"
+
 TYPE_COLORS = {
     "GRASS": ("#78c850", "#ffffff"),
     "ELECTRIC": ("#f8d030", "#605010"),
@@ -628,10 +639,10 @@ def build_hero():
 # ---------------------------------------------------------------- nav + headers
 
 NAV_STYLES = {
-    "fight": ("FIGHT", "#f05848", "#b82c28", "#801c1c", "rgba(80,10,10,.6)"),
+    "dex": ("POKéDEX", "#f05848", "#b82c28", "#801c1c", "rgba(80,10,10,.6)"),
     "bag": ("BAG", "#f0a030", "#c07818", "#8a5410", "rgba(90,50,0,.55)"),
-    "pokemon": ("POKéMON", "#50b068", "#268048", "#175830", "rgba(10,60,30,.55)"),
-    "run": ("RUN", "#5088d8", "#2c5ca8", "#1c3c78", "rgba(10,30,80,.55)"),
+    "trainer": ("TRAINER CARD", "#50b068", "#268048", "#175830", "rgba(10,60,30,.55)"),
+    "save": ("SAVE", "#5088d8", "#2c5ca8", "#1c3c78", "rgba(10,30,80,.55)"),
 }
 
 
@@ -666,61 +677,89 @@ def build_header(name):
 # ---------------------------------------------------------------- cards
 
 
-def build_card(fname, move, flavor, chips, pp, rows, link_label, icon, icon_colors):
+def sweep(d, s):
+    """Trainer card's red corner sweep."""
+    d.add(f'<path d="M{240 * s} {2 * s} L{318 * s} {2 * s} L{318 * s} {40 * s} Z" fill="#b02838"/>')
+    d.add(f'<path d="M{262 * s} {2 * s} L{318 * s} {2 * s} L{318 * s} {30 * s} Z" fill="#d84048"/>')
+
+
+def blit_scaled(doc, s, x, y, art, colors, k):
+    """blit_map at k times pixel size, for promoting a 12x12 icon to a sprite."""
+    doc.add(f'<g transform="translate({fnum(x * s)},{fnum(y * s)}) scale({fnum(k)})">')
+    blit_map(doc, s, 0, 0, art, colors)
+    doc.add("</g>")
+
+
+def type_chips(doc, s, x, y, types):
+    cx = x
+    for t in types:
+        cbg, ctx = TYPE_COLORS[t]
+        w = len(t) * 6 + 12
+        rbox(doc, s, cx, y, w, 16, cbg, border="#00000040", b=1)
+        doc.text((cx + 6) * s, (y + 5) * s, t, scale=s * 0.75, fill=ctx)
+        cx += w + 6
+    return cx
+
+
+def wrap(text, n):
+    """Greedy wrap to n characters, for the dex flavor paragraph."""
+    lines, cur = [], ""
+    for word in text.split():
+        t = (cur + " " + word).strip()
+        if len(t) > n:
+            lines.append(cur)
+            cur = word
+        else:
+            cur = t
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def build_card(fname, ns, name, dexno, species, meta, types, dex, link, art, art_colors):
+    """A Pokedex entry: inset sprite panel, species line, HT/WT, flavor paragraph."""
     S = 2
-    H = 96 + len(rows) * 13 + 30
-    d = Doc(320 * S, H * S, ns=fname.split(".")[0].replace("-", "") + "_")
-    rbox(d, S, 0, 0, 320, H, PANEL, border=NAVY, b=2)
+    lines = wrap(dex, 46)
+    H = 140 + len(lines) * 12 + 30
+    d = Doc(320 * S, H * S, ns=ns + "_")
+    rbox(d, S, 0, 0, 320, H, CARD_BG, border=CARD_BD, b=2)
+    sweep(d, S)
 
-    hg = d.grad("hg", "#4878b8", "#2f568c")
-    rbox(d, S, 8, 8, 304, 26, hg, border="#22406a", b=1)
-    d.add(f'<path d="{rpath(S, 10, 10, 300, 7)}" fill="rgba(255,255,255,0.18)"/>')
+    d.text(16 * S, 12 * S, "POKéDEX", scale=S, fill=GOLD)
+    d.text(160 * S, 14 * S, dexno, scale=S * 0.75, fill=SUB)
+    px(d, S, 12, 30, 296, 1, CARD_BD)
 
-    # typed header
-    n = len(move)
-    d.text_shadow(18 * S, 16 * S, move, scale=S, shadow="rgba(0,0,20,.5)", dy=S)
-    cyc = 10.0
-    p = lambda t: fnum(t / cyc * 100)
-    ts, te = 0.4, 0.4 + n * 0.04
+    # sprite panel, mirroring the trainer card's portrait box
+    rbox(d, S, 16, 40, 76, 76, INNER_BG, border=INNER_BD, b=1)
     d.css.append(
-        f".thd{{transform-box:fill-box;transform-origin:100% 50%;"
-        f"animation:thd {fnum(cyc)}s linear infinite}}"
-        f"@keyframes thd{{0%{{transform:scaleX(1)}}"
-        f"{p(ts)}%{{transform:scaleX(1);animation-timing-function:steps({n},end)}}"
-        f"{p(te)}%,100%{{transform:scaleX(0)}}}}"
-        "@keyframes fadein{0%,24%{opacity:0}27%,100%{opacity:1}}"
-        ".fdin{animation:fadein 10s linear infinite}"
-        "@keyframes blink{0%,54%{opacity:1}55%,100%{opacity:0}}"
-        ".blink{animation:blink 1.1s steps(1,end) infinite}"
+        f"@keyframes {ns}bob{{0%,49.9%{{transform:translateY(0)}}50%,100%{{transform:translateY(-3px)}}}}"
+        f".{ns}bob{{animation:{ns}bob 1.6s steps(1,end) infinite}}"
     )
-    d.rect(17 * S, 14 * S, (n * 8 + 3) * S, 12 * S, hg, cls="thd")
-    blit_map(d, S, 292, 11, icon, icon_colors)
-
-    d.add('<g class="fdin">')
-    d.text(16 * S, 42 * S, flavor, scale=S * 0.75, fill=MUT)
+    d.add(f'<g class="{ns}bob">')
+    blit_scaled(d, S, 30, 54, art, art_colors, 4.0)
     d.add("</g>")
 
-    # type chips + PP
-    cx = 16
-    for chip in chips:
-        cbg, ctx = TYPE_COLORS[chip]
-        w = len(chip) * 6 + 12
-        rbox(d, S, cx, 56, w, 16, cbg, border="#00000030", b=1)
-        d.text((cx + 6) * S, 61 * S, chip, scale=S * 0.75, fill=ctx)
-        cx += w + 6
-    pp_txt = f"PP {pp}"
-    d.text((304 - len(pp_txt) * 6) * S, 61 * S, pp_txt, scale=S * 0.75, fill="#607090")
-
-    px(d, S, 12, 80, 296, 1, "#d4d8e0")
-    y = 88
-    for label, value in rows:
-        d.text(20 * S, y * S, label, scale=S * 0.75, fill=MUT)
-        d.text(92 * S, y * S, value, scale=S * 0.75, fill=TXT)
+    x = 104
+    d.text(x * S, 44 * S, name, scale=S, fill=VAL)
+    d.text(x * S, 62 * S, species, scale=S * 0.75, fill=SUB)
+    y = 80
+    for label, value in meta:
+        d.text(x * S, y * S, label, scale=S * 0.75, fill=SUB)
+        d.text((x + 24) * S, y * S, value, scale=S * 0.75, fill=VAL)
         y += 13
-    px(d, S, 12, y + 1, 296, 1, "#d4d8e0")
-    d.tri_right(18 * S, (y + 8) * S, S * 0.8, fill=RED, cls="blink")
-    lw = d.text(28 * S, (y + 7) * S, link_label, scale=S * 0.75, fill=LINK)
-    px(d, S, 28, y + 15, lw / S, 1, "#88a8e0")
+    type_chips(d, S, x, 104, types)
+
+    px(d, S, 12, 126, 296, 1, RULE_D)
+    y = 134
+    for ln in lines:
+        d.text(18 * S, y * S, ln, scale=S * 0.75, fill=VAL)
+        y += 12
+
+    y += 4
+    px(d, S, 12, y, 296, 1, RULE_D)
+    d.tri_right(18 * S, (y + 7) * S, S * 0.8, fill=GOLD)
+    lw = d.text(28 * S, (y + 6) * S, link, scale=S * 0.75, fill=LINK_D)
+    px(d, S, 28, y + 14, lw / S, 1, "#3c5a8a")
     d.save(fname)
 
 
@@ -909,34 +948,30 @@ def main():
         build_header(n)
     build_card(
         "card-haywire.svg",
-        "COLE used HAYWIRE!",
-        "It's super effective!",
+        "hw",
+        "HAYWIRE",
+        "No.001",
+        "the Hay-Price Pokémon",
+        [("HT", "LIVE / REPO PRIVATE"), ("WT", "6 SUBSYSTEMS")],
         ["GRASS", "ELECTRIC"],
-        "16/16",
-        [
-            ("pipeline", "Python scrape/publish, GH cron"),
-            ("data", "Supabase Postgres, deny-all RLS"),
-            ("frontend", "static site + Netlify functions"),
-            ("email", "Beehiiv newsletter"),
-            ("tests", "policy-as-code, 16x5 verdicts"),
-            ("ci", "ruff + eslint, zero findings"),
-        ],
+        "Scrapes hay auction reports on a cron and publishes a weekly "
+        "price digest. Keeps every record behind deny-all RLS, and refuses "
+        "to ship when a single policy test comes back red.",
         "haywireag.com",
         WHEAT,
         {"#": "#f8d048"},
     )
     build_card(
         "card-agentfusion.svg",
-        "COLE used AGENT-FUSION!",
-        "Wild AI agents cooperated!",
+        "af",
+        "AGENT-FUSION",
+        "No.002",
+        "the Orchestration Pokémon",
+        [("HT", "MIT LICENSED"), ("WT", "PYTHON 3.11+")],
         ["GHOST", "PSYCHIC"],
-        "24/24",
-        [
-            ("routing", "Claude Code + OpenAI Codex"),
-            ("skills", "Markdown+YAML skill profiles"),
-            ("language", "Python 3.11+"),
-            ("license", "MIT"),
-        ],
+        "Routes a coding task to whichever agent suits it, then makes the "
+        "two cooperate. Each one works from a Markdown and YAML skill "
+        "profile it will not act outside of.",
         "github.com/ColeGlasgow/agent-fusion",
         ROBOT,
         {"#": "#d8dce8", "o": "#5878c8"},
