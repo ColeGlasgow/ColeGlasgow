@@ -301,8 +301,8 @@ BLINK = "@keyframes blink{0%,54%{opacity:1}55%,100%{opacity:0}}.blink{animation:
 ROWS = [("NAME", "COLE"), ("JOB", "FULL-STACK SOFTWARE ENGINEER")]
 
 DEX = [
-    ("No.001", "HAYWIRE", ["GRASS", "ELECTRIC"], "Hay auctions in, weekly digest out."),
-    ("No.002", "WELLMARK", ["WATER", "STEEL"], "Software engineer, Enterprise Data."),
+    ("No.001", "HAYWIRE", ["GRASS", "ELECTRIC"], "Hay market intelligence."),
+    ("No.002", "WELLMARK", ["WATER", "STEEL"], "Software engineer."),
 ]
 
 BADGES = [
@@ -318,7 +318,7 @@ BADGE_COLS = (0, 72, 151)  # JAVASCRIPT needs the wide last column
 PHASES = [
     (5.5, "Cole is a full-stack software engineer at Wellmark."),
     (5.5, "He also builds HayWire, a weekly hay-price newsletter."),
-    (5.0, "The latest issue is at haywireag.com."),
+    (5.0, "I get $1 Caseys coffee every morning :)."),
 ]
 
 STARS = [(152, 12), (136, 34), (148, 62), (118, 18), (100, 8), (76, 16), (56, 10), (10, 14),
