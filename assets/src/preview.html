@@ -1,25 +1,18 @@
-<!doctype html><html><head><meta charset="utf-8"><style>
-body{background:#0d1117;color:#556;font-family:monospace;display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px}
-svg{max-width:680px;height:auto}
-.half svg{max-width:300px}
-h3{margin:8px 0 0}
+<!doctype html><html><head><meta charset="utf-8"><base href="../../"><style>
+/* The README inside a mock of GitHub's profile column, at the same offsets as
+   the real page, so a 1440x800 window shows what fits without scrolling.
+   Serve the repo root (python3 -m http.server) and open /assets/src/preview.html;
+   add ?light for the light theme. */
+body{margin:0;background:#0d1117;color:#f0f6fc;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.box{box-sizing:border-box;width:896px;margin:165px 0 0 432px;padding:24px;border:1px solid #3d444d;border-radius:6px}
+.path{font:12px/18px ui-monospace,SFMono-Regular,Menlo,monospace;margin-bottom:16px}
+img{max-width:100%;box-sizing:content-box}
+sub{font-size:75%} a{color:#4493f8}
+.light{background:#fff;color:#1f2328} .light .box{border-color:#d1d9e0} .light a{color:#0969da}
 </style></head><body>
+<div class="box"><div class="path">ColeGlasgow/README.md</div><div id="md"></div></div>
 <script>
-const t = new URLSearchParams(location.search).get('t') || '0';
-const files = ['console','menu-fight','menu-bag','menu-pokemon','menu-run','h-fight',
-'card-haywire','card-agentfusion','bag','trainer-card','divider','save','btn-email','btn-site'];
-(async () => {
-  for (const f of files) {
-    const h = document.createElement('h3'); h.textContent = f; document.body.appendChild(h);
-    const div = document.createElement('div');
-    if (f.startsWith('menu-') || f.startsWith('btn-')) div.className = 'half';
-    div.innerHTML = await (await fetch('../' + f + '.svg')).text();
-    document.body.appendChild(div);
-  }
-  const st = document.createElement('style');
-  st.textContent = `svg *{animation-delay: -${t}s !important}`;
-  document.body.appendChild(st);
-  document.title = 'ready';
-})();
+if (location.search.includes('light')) document.body.className = 'light';
+fetch('README.md').then(r => r.text()).then(t => { document.getElementById('md').innerHTML = t; });
 </script>
 </body></html>
